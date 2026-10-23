@@ -446,7 +446,7 @@ main{animation:pageArrive .65s cubic-bezier(.22,.8,.24,1) both}.subpage-intro{an
 
 /* ===== Halloween-Modus ===== */
 .nav .wrap { position: relative; }
-.hw-toggle { position: absolute; right: 0; top: calc(100% + .45rem); z-index: 21; display: inline-flex; align-items: center; gap: .5rem; padding: .38rem .5rem .38rem .7rem; border-radius: 99px; border: 1px solid rgba(255,150,40,.45); background: rgba(3,28,19,.88); color: #ffd9a8; font: 600 .78rem/1 var(--font); cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; transition: opacity .35s, transform .35s, box-shadow .3s, background .3s; box-shadow: 0 4px 18px rgba(0,0,0,.35); }
+.hw-toggle { position: relative; right: auto; top: auto; z-index: 21; display: inline-flex; align-items: center; gap: .5rem; padding: .38rem .5rem .38rem .7rem; border-radius: 99px; border: 1px solid rgba(255,150,40,.45); background: rgba(3,28,19,.88); color: #ffd9a8; font: 600 .78rem/1 var(--font); cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; transition: opacity .35s, transform .35s, box-shadow .3s, background .3s; box-shadow: 0 4px 18px rgba(0,0,0,.35); }
 .hw-toggle[hidden] { display: none; }
 .hw-toggle svg { width: 20px; height: 18px; flex: none; }
 .hw-toggle .hw-sw { position: relative; width: 36px; height: 20px; border-radius: 99px; background: rgba(255,255,255,.18); transition: background .3s; flex: none; }
