@@ -25,6 +25,7 @@
     catch (_) { status('Dein Browser verhindert das Speichern. Die Anmeldung bleibt nur in diesem Tab erhalten.', true); }
   }
   function reset() {
+    if ($('profile-start')) $('profile-start').textContent = 'Account erstellen / anmelden';
     if ($('home-signup')) $('home-signup').hidden = false;
     clearTimeout(refreshTimer); session = null; token = '';
     updateHomeGreeting(null);
@@ -108,6 +109,7 @@
     }
   }
   function profile(user) {
+    if ($('profile-start')) $('profile-start').textContent = 'Mein Profil öffnen';
     if ($('home-signup')) $('home-signup').hidden = true;
     updateHomeGreeting(user);
     $('account-entry').hidden = true;
