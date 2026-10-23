@@ -1,0 +1,175 @@
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const dialog = $('account-dialog');
+  const config = window.YOYOO_AUTH || {};
+  let email = '', token = '', busy = false, resendAt = 0;
+  const SESSION_KEY = 'yoyoo.auth.v1';
+  function updateHomeGreeting(user) {
+    const greeting = $('home-greeting');
+    if (!greeting) return;
+    const username = user?.user_metadata?.username?.trim();
+    greeting.hidden = !username;
+    if (!username) { greeting.textContent = ''; return; }
+    const hour = new Date().getHours();
+    const salutation = hour >= 5 && hour < 11 ? 'Guten Morgen' : hour >= 11 && hour < 14 ? 'Guten Mittag' : hour >= 14 && hour < 18 ? 'Guten Nachmittag' : 'Guten Abend';
+    greeting.textContent = salutation + ', ' + username + '!';
+  }
+  setInterval(() => updateHomeGreeting(session?.user), 60000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) updateHomeGreeting(session?.user); });
+
+  let session = null, refreshTimer, refreshing;
+  const consent = () => window.YoyooCookies?.accepted() === true;
+  function persist() {
+    try { if (consent() && session) localStorage.setItem(SESSION_KEY, JSON.stringify(session)); else localStorage.removeItem(SESSION_KEY); }
+    catch (_) { status('Dein Browser verhindert das Speichern. Die Anmeldung bleibt nur in diesem Tab erhalten.', true); }
+  }
+  function reset() {
+    if ($('home-signup')) $('home-signup').hidden = false;
+    clearTimeout(refreshTimer); session = null; token = '';
+    updateHomeGreeting(null);
+    try { localStorage.removeItem(SESSION_KEY); } catch (_) {}
+    $('account-profile').hidden = true; $('account-entry').hidden = false;
+    $('account-code-form').hidden = true; $('account-code').value = '';
+    $('account-username').value = ''; $('account-open').textContent = 'Profil';
+  }
+  function useSession(data) {
+    if (!data.access_token || !data.refresh_token || !data.user?.email_confirmed_at) throw new Error('Bitte melde dich erneut per E-Mail-Code an.');
+    session = { access_token: data.access_token, refresh_token: data.refresh_token,
+      expires_at: data.expires_at || Math.floor(Date.now()/1000) + (data.expires_in || 3600), user: data.user };
+    token = session.access_token; persist(); profile(session.user);
+    clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(() => refresh().catch(() => status('Die Sitzung konnte nicht erneuert werden. Bitte prüfe deine Verbindung.', true)), Math.max(1000, session.expires_at*1000-Date.now()-60000));
+  }
+  async function refresh() {
+    if (refreshing) return refreshing;
+    const action = async () => {
+      // Mehrere Tabs erneuern dieselbe Sitzung nacheinander.
+      if (consent()) { try { const saved = JSON.parse(localStorage.getItem(SESSION_KEY)); if (saved?.refresh_token) session = saved; } catch (_) {} }
+      if (!session) return;
+      try { useSession(await request('token?grant_type=refresh_token', {refresh_token: session.refresh_token})); }
+      catch(error) { if (error.authInvalid) { reset(); status('Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.', true); } throw error; }
+    };
+    refreshing = (navigator.locks ? navigator.locks.request('yoyoo-auth-refresh', action) : action()).finally(() => { refreshing = null; });
+    return refreshing;
+  }
+  async function restore() {
+    if (!consent()) return;
+    try {
+      const saved = JSON.parse(localStorage.getItem(SESSION_KEY));
+      if (!saved?.refresh_token || !saved?.access_token) return;
+      session = saved; token = saved.access_token;
+      if (saved.expires_at*1000 < Date.now()+60000) await refresh();
+      else { const user = await request('user', undefined, token); useSession({...saved, user}); }
+    } catch(error) {
+      if (error.authInvalid) reset();
+      status('Deine gespeicherte Anmeldung konnte nicht bestätigt werden. Prüfe deine Verbindung oder melde dich erneut an.', true);
+    }
+  }
+  window.addEventListener('yoyoo-consent', () => { persist(); });
+  window.addEventListener('storage', event => { if (event.key === SESSION_KEY) { if (!event.newValue) reset(); else restore(); } });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && session && session.expires_at*1000 < Date.now()+60000) refresh().catch(()=>{}); });
+  const status = (message, error = false) => {
+    $('account-status').textContent = message;
+    $('account-status').classList.toggle('error', error);
+  };
+  function configured() {
+    if (!/^https:\/\/[^/]+\/?$/.test(config.url || '') || !config.publishableKey) {
+      throw new Error('Die E-Mail-Anmeldung ist noch nicht eingerichtet. Bitte versuche es später erneut.');
+    }
+  }
+  async function request(path, body, accessToken, method) {
+    configured();
+    const response = await fetch(config.url.replace(/\/$/, '') + '/auth/v1/' + path, {
+      method: method || (body === undefined ? 'GET' : 'POST'),
+      headers: { apikey: config.publishableKey, 'Content-Type': 'application/json',
+        ...(accessToken ? { Authorization: 'Bearer ' + accessToken } : {}) },
+      body: body === undefined ? undefined : JSON.stringify(body),
+      signal: AbortSignal.timeout(20000)
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      if (response.status === 401 || (path.startsWith('token?') && response.status === 400)) { const error = new Error('Bitte melde dich erneut an.'); error.authInvalid = true; throw error; }
+      if (response.status === 429) throw new Error('Zu viele Anfragen. Bitte warte etwas und versuche es erneut.');
+      if (path === 'verify') throw new Error('Der Code ist ungültig oder abgelaufen. Prüfe ihn oder fordere einen neuen an.');
+      throw new Error('Die Anmeldung konnte nicht abgeschlossen werden. Bitte versuche es später erneut.');
+    }
+    return data;
+  }
+  async function run(action) {
+    if (busy) return;
+    busy = true;
+    dialog.querySelectorAll('button:not(#account-close), input').forEach(el => el.disabled = true);
+    try { await action(); } catch (error) {
+      status(error.name === 'TypeError' || error.name === 'TimeoutError' ? 'Verbindung fehlgeschlagen. Bitte prüfe deine Internetverbindung und versuche es erneut.' : error.message, true);
+    } finally {
+      busy = false;
+      dialog.querySelectorAll('button, input').forEach(el => el.disabled = false);
+    }
+  }
+  function profile(user) {
+    if ($('home-signup')) $('home-signup').hidden = true;
+    updateHomeGreeting(user);
+    $('account-entry').hidden = true;
+    $('account-code-form').hidden = true;
+    $('account-profile').hidden = false;
+    $('account-email-display').textContent = user.email;
+    $('account-open').textContent = 'Mein Profil';
+    $('account-username').value = user.user_metadata?.username || '';
+    $('account-greeting').textContent = user.user_metadata?.username ? 'Hallo, ' + user.user_metadata.username + '!' : 'Willkommen in deinem Profil!';
+  }
+  async function sendCode() {
+    if (Date.now() < resendAt) throw new Error('Bitte warte noch ' + Math.ceil((resendAt - Date.now()) / 1000) + ' Sekunden, bevor du einen neuen Code anforderst.');
+    await request('otp', { email, create_user: true });
+    resendAt = Date.now() + 60000;
+    $('account-entry').hidden = true;
+    $('account-code-form').hidden = false;
+    $('account-code').value = '';
+    status('Code angefordert für ' + email + '. Er kann einige Minuten unterwegs sein.');
+  }
+  $('account-open').addEventListener('click', () => dialog.showModal());
+  $('account-close').addEventListener('click', () => dialog.close());
+  $('account-email-form').addEventListener('submit', event => {
+    event.preventDefault();
+    email = $('account-email').value.trim();
+    run(async () => { await sendCode(); }).then(() => { if (!$('account-code-form').hidden) $('account-code').focus(); });
+  });
+  $('account-code-form').addEventListener('submit', event => {
+    event.preventDefault();
+    run(async () => {
+      const data = await request('verify', { email, token: $('account-code').value.trim(), type: 'email' });
+      if (!data.access_token || !data.user?.email_confirmed_at) throw new Error('Die E-Mail-Adresse konnte nicht bestätigt werden.');
+      useSession(data);
+      status('E-Mail bestätigt. Du bist jetzt angemeldet!');
+    });
+  });
+  $('account-resend').addEventListener('click', () => run(sendCode));
+  $('account-change').addEventListener('click', () => {
+    $('account-entry').hidden = false;
+    $('account-code-form').hidden = true;
+    $('account-code').value = '';
+    status('');
+    $('account-email').focus();
+  });
+  $('account-username-form').addEventListener('submit', event => {
+    event.preventDefault();
+    const username = $('account-username').value.trim();
+    if (!/^[\p{L}\p{N}_ .-]{3,24}$/u.test(username)) { status('Bitte wähle 3 bis 24 Zeichen: Buchstaben, Zahlen, Leerzeichen, Punkt, Unterstrich oder Bindestrich.', true); return; }
+    run(async () => {
+      if (!session) throw new Error('Bitte melde dich zuerst an.');
+      if (session.expires_at*1000 < Date.now()+60000) await refresh();
+      const user = await request('user', {data: {username}}, token, 'PUT');
+      session.user = user; persist(); profile(user); status('Dein Benutzername wurde gespeichert.');
+    });
+  });
+  $('account-logout').addEventListener('click', () => run(async () => {
+    let failed = false;
+    try { await request('logout', {}, token); } catch (_) { failed = true; }
+    finally { reset(); status(failed ? 'Lokal abgemeldet. Die serverseitige Abmeldung war wegen eines Verbindungsfehlers nicht möglich.' : 'Du bist abgemeldet. Die gespeicherte Anmeldung wurde entfernt.'); }
+  }));
+  window.yoyooAuthReady = restore().finally(() => {
+    if ($('home-signup')) $('home-signup').hidden = !$('account-profile').hidden;
+    if ($('profile-start')) dialog.showModal();
+  });
+  if ($('profile-start')) $('profile-start').addEventListener('click', () => dialog.showModal());
+})();
