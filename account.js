@@ -125,7 +125,7 @@
     $('account-entry').hidden = true;
     $('account-code-form').hidden = false;
     $('account-code').value = '';
-    status('Code angefordert für ' + email + '. Er kann einige Minuten unterwegs sein.');
+    status('Code angefordert für ' + email + '. Er kann einige Minuten unterwegs sein. Keine E-Mail erhalten? Schau bitte auch in deinem Spam-Ordner nach.');
   }
   $('account-open').addEventListener('click', () => dialog.showModal());
   $('account-close').addEventListener('click', () => dialog.close());
