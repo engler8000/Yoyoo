@@ -548,3 +548,18 @@ main,footer,.progress,.nav .wrap>:not(.hw-toggle){transition:filter .7s ease}
 @media(prefers-reduced-motion:reduce){.hw-layer,.hw-vignette,.hw-hud,body,header.nav,main,footer,.progress,.nav .wrap>:not(.hw-toggle){transition:none!important}}
 
 .signup-card[hidden]{display:none!important}.signup-card{display:flex;align-items:center;justify-content:space-between;gap:1.5rem;margin:1.5rem 0 0;padding:1.6rem 1.8rem;border:1px solid var(--line);border-radius:20px;background:linear-gradient(135deg,var(--bg-3),var(--bg-2))}.signup-card h2{font-size:clamp(1.2rem,3vw,1.65rem);line-height:1.3;margin:.5rem 0}.signup-card p{color:var(--muted);margin:.5rem 0 0;max-width:40rem;font-size:.9rem}.signup-card>.btn{flex:none;text-align:center}.profile-page{padding-top:1.5rem}.profile-page p{color:var(--muted);max-width:42rem}.profile-page h1{font-size:clamp(1.8rem,5vw,3rem)}@media(max-width:700px){.signup-card{flex-direction:column;align-items:stretch;padding:1.25rem}.signup-card>.btn{align-self:flex-start}}
+
+/* Kompakte Handy-Navigation: nur die Seitenlinks, keine zusätzliche Marken-/Discord-Zeile. */
+@media(max-width:700px){
+ header.nav .brand,header.nav .discord-link,header.nav .site-legal{display:none!important}
+ header.nav .wrap{padding-block:.45rem;gap:0}
+ header.nav .wrap>nav{order:0;flex:1 1 100%;width:100%;min-width:0}
+ header.nav ul{margin:0;padding:.1rem 0;gap:.2rem;align-items:center}
+ header.nav ul a,header.nav ul .account-nav{font-size:.8rem;padding:.4rem .6rem}
+}
+
+/* Saison-Schalter außerhalb der angehefteten Navigation. */
+.season-control{display:flex;justify-content:flex-end;padding-block:.7rem;position:relative;z-index:16}
+.season-control .hw-toggle{position:relative;inset:auto;margin:0;order:0;flex:none}
+.season-control .hw-toggle.away{opacity:1;pointer-events:auto;transform:none}
+@media(max-width:700px){.season-control{padding-block:.6rem}.season-control .hw-toggle{font-size:.75rem;padding:.45rem .65rem}}
