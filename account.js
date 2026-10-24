@@ -143,18 +143,35 @@
     return 'Nicht verfügbar';
   }
   function notify() { window.dispatchEvent(new Event('yoyoo-auth-changed')); }
+  const pkceStorage = {
+    async getItem(key) {
+      try { const value=sessionStorage.getItem(key); if(value) return value; } catch (_) {}
+      try { return localStorage.getItem(key); } catch (_) { return null; }
+    },
+    async setItem(key,value) {
+      let stored=false;
+      try { sessionStorage.setItem(key,value); stored=true; } catch (_) {}
+      try { localStorage.setItem(key,value); stored=true; } catch (_) {}
+      if(!stored) throw new Error('Dein Browser kann die Discord-Anmeldung nicht zwischenspeichern.');
+    },
+    async removeItem(key) {
+      try { sessionStorage.removeItem(key); } catch (_) {}
+      try { localStorage.removeItem(key); } catch (_) {}
+    }
+  };
   let oauthClient;
   async function client() {
     configured();
     if (!oauthClient) {
       if (!window.supabase) throw new Error('Die Discord-Anmeldung konnte nicht geladen werden. Bitte lade die Seite neu.');
-      oauthClient=window.supabase.createClient(config.url,config.publishableKey,{auth:{flowType:'pkce',autoRefreshToken:false,persistSession:false,detectSessionInUrl:false,storage:sessionStorage,storageKey:'yoyoo-discord-pkce'}});
+      oauthClient=window.supabase.createClient(config.url,config.publishableKey,{auth:{flowType:'pkce',autoRefreshToken:false,persistSession:false,detectSessionInUrl:false,storage:pkceStorage,storageKey:'yoyoo-discord-pkce'}});
     }
     return oauthClient;
   }
   async function discordLogin() {
     if (!/^https?:$/.test(location.protocol)) throw new Error('Discord-Anmeldung benötigt eine Website-Adresse (http oder https). Bitte öffne die lokale Vorschau.');
     const c=await client();
+    await pkceStorage.removeItem('yoyoo-discord-pkce-code-verifier');
     const redirectTo=new URL('uid.html',location.href).href;
     let result;
     if (session && !discordIdentity()) {
@@ -180,15 +197,27 @@
     history.replaceState({},'',url);
     dialog.showModal();
     if(providerError) {
+      await pkceStorage.removeItem('yoyoo-discord-pkce-code-verifier');
       const details=[providerError,providerDescription].map(safeAuthDetail).filter(Boolean).join(': ');
       throw new Error('Discord-Anmeldung fehlgeschlagen ('+details+'). Bitte starte sie erneut.');
     }
-    const c=await client(); const {data,error}=await c.auth.exchangeCodeForSession(code);
-    if(error) {
+    const c=await client(); let exchangeResult;
+    try { exchangeResult=await c.auth.exchangeCodeForSession(code); }
+    catch(error) {
+      await pkceStorage.removeItem('yoyoo-discord-pkce-code-verifier');
       const details=[error.code,error.message].map(safeAuthDetail).filter(Boolean).join(': ');
       throw new Error('Discord-Rückmeldung konnte nicht bestätigt werden'+(details?' ('+details+')':'')+'. Bitte starte die Anmeldung auf derselben Website erneut.');
     }
-    if(!data?.session) throw new Error('Discord hat keine aktive Sitzung zurückgegeben. Bitte starte die Anmeldung erneut.');
+    const {data,error}=exchangeResult;
+    if(error) {
+      await pkceStorage.removeItem('yoyoo-discord-pkce-code-verifier');
+      const details=[error.code,error.message].map(safeAuthDetail).filter(Boolean).join(': ');
+      throw new Error('Discord-Rückmeldung konnte nicht bestätigt werden'+(details?' ('+details+')':'')+'. Bitte starte die Anmeldung auf derselben Website erneut.');
+    }
+    if(!data?.session) {
+      await pkceStorage.removeItem('yoyoo-discord-pkce-code-verifier');
+      throw new Error('Discord hat keine aktive Sitzung zurückgegeben. Bitte starte die Anmeldung erneut.');
+    }
     const expected=sessionStorage.getItem('yoyoo-discord-link-user'); sessionStorage.removeItem('yoyoo-discord-link-user');
     if(expected&&data.session.user.id!==expected) throw new Error('Discord wurde nicht mit dem ursprünglichen Konto verbunden. Bitte melde dich erneut per E-Mail an.');
     useSession(data.session); status('Du bist mit Discord angemeldet.'); return true;
