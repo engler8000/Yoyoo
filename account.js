@@ -128,6 +128,15 @@
   function oauthSession() {
     try { const payload=JSON.parse(atob(token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))); return !!discordIdentity() && payload.amr?.some(a=>a.method==='oauth'); } catch { return false; }
   }
+  function loginMethod() {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));
+      const methods = (payload.amr || []).filter(a => a.method !== 'token_refresh').sort((a,b) => b.timestamp - a.timestamp);
+      if (methods[0]?.method === 'oauth' && discordIdentity()) return 'Discord';
+      if (methods.some(a => ['otp','email/signup','magiclink','password'].includes(a.method))) return 'E-Mail';
+    } catch {}
+    return 'Nicht verfügbar';
+  }
   function notify() { window.dispatchEvent(new Event('yoyoo-auth-changed')); }
   let oauthClient;
   async function client() {
@@ -171,7 +180,7 @@
     if(expected&&data.session.user.id!==expected) throw new Error('Discord wurde nicht mit dem ursprünglichen Konto verbunden. Bitte melde dich erneut per E-Mail an.');
     useSession(data.session); status('Du bist mit Discord angemeldet.'); return true;
   }
-  window.YoyooAuth={ user:()=>session?.user || null, discord:discordIdentity, discordName:()=>discordName(discordIdentity()), canPublish:oauthSession,
+  window.YoyooAuth={ loginMethod, user:()=>session?.user || null, discord:discordIdentity, discordName:()=>discordName(discordIdentity()), canPublish:oauthSession,
     open:()=>dialog.showModal(), discordLogin:()=>{dialog.showModal();return run(discordLogin);},
     accessToken:async()=>{if(session&&session.expires_at*1000<Date.now()+60000) await refresh();return token;}
   };

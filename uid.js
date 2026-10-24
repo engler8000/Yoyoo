@@ -27,7 +27,7 @@
     $('uid-name').textContent=auth.discordName();
     if(document.activeElement!==$('uid-value')) $('uid-value').value=mine?.uid||'';
     $('uid-delete').hidden=!mine;
-    $('uid-requirement').textContent=!user?'Zum Hinzufügen brauchst du ein Konto und eine Discord-Anmeldung.':!auth.canPublish()?'Bitte melde dich mit Discord an. Dein bestehendes E-Mail-Konto bleibt bei der Verknüpfung erhalten.':'Dein Discord-Name wird automatisch übernommen.';
+    $('uid-requirement').textContent=!user?'Zum Hinzufügen brauchst du ein Konto und eine Discord-Anmeldung.':!auth.canPublish()?(auth.discord() ? 'Bitte melde dich mit Discord an, um deine UID zu bearbeiten.' : 'Du bist per E-Mail angemeldet. Bitte füge noch Discord hinzu. Dein bestehendes Konto bleibt erhalten.'):'Bitte füge deine UID hier ein. Dein Discord-Benutzername wird automatisch übernommen und zusammen mit deiner UID öffentlich angezeigt.';
   }
   function render() {
     const body=$('uid-rows');body.replaceChildren();
@@ -56,13 +56,14 @@
     if(!/^[0-9]{19}$/.test(uid)){status('Die CODM-UID muss aus 19 Ziffern bestehen.');return;}
     if(!window.YoyooAuth.canPublish()){status('Bitte melde dich zuerst mit Discord an.');return;}
     saving=true;$('uid-save').disabled=true;
-    try{await api('rpc/yoyoo_save_uid',{new_uid:uid});await load();if(loaded&&mine)status('Deine UID ist jetzt in der Liste.');}catch(e){status(e.message);}finally{saving=false;$('uid-save').disabled=false;}
+    try{await api('rpc/yoyoo_save_uid',{new_uid:uid});window.dispatchEvent(new Event('yoyoo-uid-changed'));await load();if(loaded&&mine)status('Deine UID ist jetzt in der Liste.');}catch(e){status(e.message);}finally{saving=false;$('uid-save').disabled=false;}
   });
   $('uid-delete').addEventListener('click',async()=>{
     if(saving)return;saving=true;$('uid-delete').disabled=true;
-    try{await api('rpc/yoyoo_delete_uid',{});await load();}catch(e){status(e.message);}finally{saving=false;$('uid-delete').disabled=false;}
+    try{await api('rpc/yoyoo_delete_uid',{});window.dispatchEvent(new Event('yoyoo-uid-changed'));await load();}catch(e){status(e.message);}finally{saving=false;$('uid-delete').disabled=false;}
   });
   $('uid-reload').addEventListener('click',load);
+  window.addEventListener('yoyoo-uid-changed',load);
   window.addEventListener('yoyoo-auth-changed',()=>{state();load();});
   window.yoyooAuthReady.then(()=>{state();load();});
 })();
