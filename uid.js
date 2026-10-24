@@ -2,6 +2,7 @@
   const $=id=>document.getElementById(id), config=window.YOYOO_AUTH;
   let mine=null, rows=[], saving=false, loaded=false, generation=0;
   const status=(s)=>{$('uid-status').textContent=s;};
+  const normalizeSearch=value=>String(value??'').normalize('NFKD').toLocaleLowerCase('de').replace(/\p{M}/gu,'').replace(/ß/g,'ss').replace(/[^\p{L}\p{N}]/gu,'');
   async function api(route,body) {
     const token=await window.YoyooAuth.accessToken();
     const response=await fetch(config.url+'/rest/v1/'+route,{method:body===undefined?'GET':'POST',headers:{apikey:config.publishableKey,...(token?{Authorization:'Bearer '+token}:{}),'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body),signal:AbortSignal.timeout(15000)});
@@ -30,8 +31,8 @@
     $('uid-requirement').textContent=!user?'Zum Hinzufügen brauchst du ein Konto und eine Discord-Anmeldung.':!auth.canPublish()?(auth.discord() ? 'Bitte melde dich mit Discord an, um deine UID zu bearbeiten.' : 'Du bist per E-Mail angemeldet. Bitte füge noch Discord hinzu. Dein bestehendes Konto bleibt erhalten.'):'Bitte füge deine UID hier ein. Dein Discord-Benutzername wird automatisch übernommen und zusammen mit deiner UID öffentlich angezeigt.';
   }
   function render() {
-    const query=$('uid-search').value.trim().normalize('NFKC').toLocaleLowerCase('de');
-    const visibleRows=rows.filter(row=>String(row.discord_name||'').normalize('NFKC').toLocaleLowerCase('de').includes(query));
+    const query=normalizeSearch($('uid-search').value);
+    const visibleRows=rows.filter(row=>normalizeSearch(row.discord_name).includes(query));
     const body=$('uid-rows');body.replaceChildren();
     for(const row of visibleRows) {
       const tr=document.createElement('tr');
