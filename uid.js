@@ -1,6 +1,6 @@
 (() => {
   const $=id=>document.getElementById(id), config=window.YOYOO_AUTH;
-  let mine=null, rows=[], saving=false, loaded=false, generation=0;
+  let mine=null, rows=[], saving=false, loaded=false, generation=0, adding=false;
   const status=(s)=>{$('uid-status').textContent=s;};
   const normalizeSearch=value=>String(value??'').normalize('NFKD').toLocaleLowerCase('de').replace(/\p{M}/gu,'').replace(/ß/g,'ss').replace(/[^\p{L}\p{N}]/gu,'');
   async function api(route,body) {
@@ -19,6 +19,10 @@
   function state() {
     const auth=window.YoyooAuth, user=auth.user();
     mine=rows.find(r=>r.user_id===user?.id)||null;
+    if(mine||!auth.canPublish()) adding=false;
+    $('uid-notice').hidden=!loaded||!!mine||adding;
+    $('uid-notice-text').textContent=user?'Du hast noch keine UID veröffentlicht.':'Füge deine CODM-UID zur Liste hinzu.';
+    $('uid-panel').hidden=!loaded||!!mine||!adding;
     $('uid-invite').hidden=!loaded||!!mine;
     $('uid-edit').hidden=!loaded||!mine;
     $('uid-login').hidden=!!user;
@@ -65,6 +69,16 @@
       rows=data;loaded=true;render();status('');
     }catch(e){if(current===generation)status(e.message);}
   }
+  $('uid-add').addEventListener('click',()=>{
+    if(!loaded||mine)return;
+    const auth=window.YoyooAuth;
+    if(!auth.user()){auth.open();return;}
+    if(!auth.canPublish()){auth.discordLogin();return;}
+    adding=true;state();$('uid-value').focus();
+  });
+  $('uid-cancel').addEventListener('click',()=>{
+    adding=false;state();$('uid-add').focus();
+  });
   $('uid-login').addEventListener('click',()=>window.YoyooAuth.open());
   $('uid-discord').addEventListener('click',()=>window.YoyooAuth.discordLogin());
   $('uid-form').addEventListener('submit',async event=>{
@@ -82,6 +96,6 @@
   $('uid-search').addEventListener('input',render);
   $('uid-reload').addEventListener('click',load);
   window.addEventListener('yoyoo-uid-changed',load);
-  window.addEventListener('yoyoo-auth-changed',()=>{state();load();});
+  window.addEventListener('yoyoo-auth-changed',()=>{adding=false;state();load();});
   window.yoyooAuthReady.then(()=>{state();load();});
 })();
