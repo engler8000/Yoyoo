@@ -143,28 +143,54 @@
     return 'Nicht verfügbar';
   }
   function notify() { window.dispatchEvent(new Event('yoyoo-auth-changed')); }
+  const PKCE_VERIFIER_KEY='yoyoo-discord-pkce-code-verifier';
+  const PKCE_COOKIE_NAME='yoyoo_discord_pkce_verifier';
+  function pkceCookieDomain() {
+    return location.hostname==='yoyoo-community.com'||location.hostname.endsWith('.yoyoo-community.com')?'; Domain=.yoyoo-community.com':'';
+  }
+  function readPkceCookie() {
+    try {
+      const prefix=PKCE_COOKIE_NAME+'=';
+      const item=document.cookie.split(';').map(value=>value.trim()).find(value=>value.startsWith(prefix));
+      return item?decodeURIComponent(item.slice(prefix.length)):null;
+    } catch (_) { return null; }
+  }
+  function writePkceCookie(value) {
+    const secure=location.protocol==='https:'?'; Secure':'';
+    document.cookie=PKCE_COOKIE_NAME+'='+encodeURIComponent(value)+'; Path=/; Max-Age=300; SameSite=Lax'+secure+pkceCookieDomain();
+  }
+  function clearPkceCookie() {
+    const secure=location.protocol==='https:'?'; Secure':'';
+    const base=PKCE_COOKIE_NAME+'=; Path=/; Max-Age=0; SameSite=Lax'+secure;
+    document.cookie=base;
+    if(pkceCookieDomain()) document.cookie=base+pkceCookieDomain();
+  }
   const pkceStorage = {
     async getItem(key) {
       try { const value=sessionStorage.getItem(key); if(value) return value; } catch (_) {}
-      try { return localStorage.getItem(key); } catch (_) { return null; }
+      try { const value=localStorage.getItem(key); if(value) return value; } catch (_) {}
+      return key===PKCE_VERIFIER_KEY?readPkceCookie():null;
     },
     async setItem(key,value) {
       let stored=false;
       try { sessionStorage.setItem(key,value); stored=true; } catch (_) {}
       try { localStorage.setItem(key,value); stored=true; } catch (_) {}
+      if(key===PKCE_VERIFIER_KEY) { try { writePkceCookie(value); stored=true; } catch (_) {} }
       if(!stored) throw new Error('Dein Browser kann die Discord-Anmeldung nicht zwischenspeichern.');
     },
     async removeItem(key) {
       try { sessionStorage.removeItem(key); } catch (_) {}
       try { localStorage.removeItem(key); } catch (_) {}
+      if(key===PKCE_VERIFIER_KEY) { try { clearPkceCookie(); } catch (_) {} }
     }
   };
   const DISCORD_FLOW_LOCK='yoyoo-discord-flow-started-at';
-  function reserveDiscordFlow() {
+  async function reserveDiscordFlow() {
     const now=Date.now();
     try {
       const started=Number(localStorage.getItem(DISCORD_FLOW_LOCK)||0);
       if(started&&now-started<5*60*1000) throw new Error('Eine Discord-Anmeldung läuft bereits in einem anderen Tab. Schließe sie dort ab oder starte nach fünf Minuten erneut.');
+      if(started) await pkceStorage.removeItem('yoyoo-discord-pkce-code-verifier');
       localStorage.setItem(DISCORD_FLOW_LOCK,String(now));
     } catch(error) {
       if(error?.message?.startsWith('Eine Discord-Anmeldung läuft bereits')) throw error;
@@ -182,7 +208,7 @@
   async function discordLogin() {
     if (!/^https?:$/.test(location.protocol)) throw new Error('Discord-Anmeldung benötigt eine Website-Adresse (http oder https). Bitte öffne die lokale Vorschau.');
     const c=await client();
-    reserveDiscordFlow();
+    await reserveDiscordFlow();
     try {
       const redirectTo=new URL('uid.html',location.href).href;
       let result;
