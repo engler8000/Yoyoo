@@ -30,8 +30,10 @@
     $('uid-requirement').textContent=!user?'Zum Hinzufügen brauchst du ein Konto und eine Discord-Anmeldung.':!auth.canPublish()?(auth.discord() ? 'Bitte melde dich mit Discord an, um deine UID zu bearbeiten.' : 'Du bist per E-Mail angemeldet. Bitte füge noch Discord hinzu. Dein bestehendes Konto bleibt erhalten.'):'Bitte füge deine UID hier ein. Dein Discord-Benutzername wird automatisch übernommen und zusammen mit deiner UID öffentlich angezeigt.';
   }
   function render() {
+    const query=$('uid-search').value.trim().normalize('NFKC').toLocaleLowerCase('de');
+    const visibleRows=rows.filter(row=>String(row.discord_name||'').normalize('NFKC').toLocaleLowerCase('de').includes(query));
     const body=$('uid-rows');body.replaceChildren();
-    for(const row of rows) {
+    for(const row of visibleRows) {
       const tr=document.createElement('tr');
       const nameCell=document.createElement('td');
       if(typeof row.discord_id==='string' && /^[1-9][0-9]{0,19}$/.test(row.discord_id)) {
@@ -49,8 +51,9 @@
       tr.append(nameCell,uidCell);
       body.append(tr);
     }
-    $('uid-empty').hidden=rows.length>0||!loaded;
-    $('uid-count').textContent=`${rows.length} Einträge`;state();
+    $('uid-empty').hidden=visibleRows.length>0||!loaded;
+    $('uid-empty').textContent=rows.length===0?'Noch keine UIDs eingetragen.':'Keine passenden Discord-Benutzernamen gefunden.';
+    $('uid-count').textContent=loaded?(query?visibleRows.length+' von '+rows.length+' Einträgen':rows.length+' Einträge'):'';state();
   }
   async function load() {
     const current=++generation;
@@ -75,6 +78,7 @@
     if(saving)return;saving=true;$('uid-delete').disabled=true;
     try{await api('rpc/yoyoo_delete_uid',{});window.dispatchEvent(new Event('yoyoo-uid-changed'));await load();}catch(e){status(e.message);}finally{saving=false;$('uid-delete').disabled=false;}
   });
+  $('uid-search').addEventListener('input',render);
   $('uid-reload').addEventListener('click',load);
   window.addEventListener('yoyoo-uid-changed',load);
   window.addEventListener('yoyoo-auth-changed',()=>{state();load();});
