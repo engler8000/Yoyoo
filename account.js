@@ -165,23 +165,27 @@
     document.cookie=base;
     if(pkceCookieDomain()) document.cookie=base+pkceCookieDomain();
   }
+  const pkceMemory = new Map();
   const pkceStorage = {
     async getItem(key) {
+      if (key !== PKCE_VERIFIER_KEY) return pkceMemory.get(key) ?? null;
       try { const value=sessionStorage.getItem(key); if(value) return value; } catch (_) {}
       try { const value=localStorage.getItem(key); if(value) return value; } catch (_) {}
-      return key===PKCE_VERIFIER_KEY?readPkceCookie():null;
+      return readPkceCookie();
     },
     async setItem(key,value) {
+      if (key !== PKCE_VERIFIER_KEY) { pkceMemory.set(key,value); return; }
       let stored=false;
       try { sessionStorage.setItem(key,value); stored=true; } catch (_) {}
       try { localStorage.setItem(key,value); stored=true; } catch (_) {}
-      if(key===PKCE_VERIFIER_KEY) { try { writePkceCookie(value); stored=true; } catch (_) {} }
+      try { writePkceCookie(value); if(readPkceCookie()===value) stored=true; } catch (_) {}
       if(!stored) throw new Error('Dein Browser kann die Discord-Anmeldung nicht zwischenspeichern.');
     },
     async removeItem(key) {
+      if (key !== PKCE_VERIFIER_KEY) { pkceMemory.delete(key); return; }
       try { sessionStorage.removeItem(key); } catch (_) {}
       try { localStorage.removeItem(key); } catch (_) {}
-      if(key===PKCE_VERIFIER_KEY) { try { clearPkceCookie(); } catch (_) {} }
+      try { clearPkceCookie(); } catch (_) {}
     }
   };
   const DISCORD_FLOW_LOCK='yoyoo-discord-flow-started-at';
@@ -201,7 +205,7 @@
     configured();
     if (!oauthClient) {
       if (!window.supabase) throw new Error('Die Discord-Anmeldung konnte nicht geladen werden. Bitte lade die Seite neu.');
-      oauthClient=window.supabase.createClient(config.url,config.publishableKey,{auth:{flowType:'pkce',autoRefreshToken:false,persistSession:false,detectSessionInUrl:false,storage:pkceStorage,storageKey:'yoyoo-discord-pkce'}});
+      oauthClient=window.supabase.createClient(config.url,config.publishableKey,{auth:{flowType:'pkce',autoRefreshToken:false,persistSession:true,detectSessionInUrl:false,storage:pkceStorage,storageKey:'yoyoo-discord-pkce'}});
     }
     return oauthClient;
   }
