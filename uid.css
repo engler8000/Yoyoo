@@ -3,3 +3,5 @@
 .profile-uid-panel{margin:24px 0;padding:22px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}.profile-uid-panel h3{margin-bottom:16px}.profile-uid-panel form p{font-size:.85rem;color:var(--muted)}#profile-login-method,#profile-signup-method{font-weight:600;color:var(--mint)}#profile-uid-current{overflow-wrap:anywhere}
 
 .uid-discord-profile{color:var(--mint);text-decoration:underline;text-underline-offset:.2em}.uid-discord-profile:hover{color:var(--text)}.uid-discord-profile:focus-visible{outline:2px solid var(--mint);outline-offset:4px;border-radius:2px}
+
+.uid-main .uid-list{padding-block:0}.uid-status:empty{display:none}
