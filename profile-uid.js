@@ -42,7 +42,10 @@
     const current = ++generation, user = window.YoyooAuth.user();
     if (homeUidNotice) homeUidNotice.hidden = true;
     entry = null; render(); message('');
-    if (!user) return;
+    if (!user) {
+      if (homeUidNotice) homeUidNotice.hidden = false;
+      return;
+    }
     message('Deine UID wird geladen …');
     try {
       const rows = await api('yoyoo_uids?select=uid&user_id=eq.' + encodeURIComponent(user.id) + '&limit=1');
