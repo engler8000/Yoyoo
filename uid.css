@@ -9,3 +9,33 @@
 .uid-main h1::after{content:"";display:block;width:48px;height:3px;background:var(--mint);border-radius:5px;margin-top:.8rem;transform-origin:left}@media(prefers-reduced-motion:no-preference){.uid-main h1.rv.in::after{animation:headingLine .9s .15s both}}
 
 .uid-search{display:flex;align-items:center;gap:.75rem;width:100%;margin:1.25rem 0;padding:.9rem 1rem;background:var(--bg-2);border:1px solid var(--line);border-radius:12px;color:var(--muted)}.uid-search svg{width:21px;height:21px;flex:none}.uid-search input{flex:1;min-width:0;width:100%;padding:0;border:0;outline:none;background:transparent;color:var(--text);font:inherit}.uid-search input::placeholder{color:var(--muted);opacity:1}.uid-search:focus-within{border-color:var(--mint);box-shadow:0 0 0 2px rgba(94,230,160,.15)}
+
+.uid-notice{display:flex;flex-wrap:wrap;align-items:center;gap:.65rem 1rem;margin:20px 0;padding:12px 16px;border:1px solid var(--line);border-radius:12px;background:var(--bg-2)}.uid-notice p{flex:1 1 210px;margin:0;color:var(--muted);font-size:.85rem;line-height:1.5}.uid-notice .btn{margin:0;padding:.5rem .85rem;font-size:.8rem}
+
+/* Kleiner UID-Hinweis auf der Startseite; Dekoration bleibt am Rand. */
+.home-uid-notice[hidden]{display:none!important}
+.home-uid-notice{position:relative;isolation:isolate;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.65rem 1rem;margin:1.25rem 0 0;padding:.8rem 1rem;border:1px solid rgba(94,230,160,.3);border-radius:14px;background:var(--bg-2)}
+.home-uid-notice>p{position:relative;z-index:1;flex:1 1 220px;margin:0;font-size:.9rem;font-weight:600;line-height:1.5;color:var(--text)}
+.home-uid-notice>.btn{position:relative;z-index:1;flex:none;margin:0;padding:.5rem .85rem;font-size:.8rem}
+.home-uid-particles{position:absolute;inset:-5px;z-index:0;overflow:hidden;border-radius:19px;pointer-events:none}
+.home-uid-particles>span{position:absolute;inset:5px;pointer-events:none}
+.home-uid-particles>span::before{content:"";position:absolute;left:0;top:0;width:2px;height:2px;border-radius:50%;background:var(--mint);box-shadow:0 0 4px rgba(94,230,160,.65);opacity:.65;transform:translate(-50%,-50%)}
+.home-uid-particles>span:nth-child(3n)::before{width:3px;height:3px}
+.home-uid-particles>span:nth-child(4n)::before{width:4px;height:4px;border-radius:0;clip-path:polygon(50% 0,62% 38%,100% 50%,62% 62%,50% 100%,38% 62%,0 50%,38% 38%)}
+@media(prefers-reduced-motion:no-preference){
+.home-uid-particles>span{animation:homeUidOrbit 22s linear infinite;animation-delay:calc(var(--i)*-.611111s)}
+.home-uid-particles>span::before{animation:homeUidTwinkle 2.6s ease-in-out infinite;animation-delay:calc(var(--i)*-.19s)}
+}
+@keyframes homeUidOrbit{
+0%{transform:translate(14px,0)}
+38%{transform:translate(calc(100% - 14px),0)}
+40%{transform:translate(100%,14px)}
+48%{transform:translate(100%,calc(100% - 14px))}
+50%{transform:translate(calc(100% - 14px),100%)}
+88%{transform:translate(14px,100%)}
+90%{transform:translate(0,calc(100% - 14px))}
+98%{transform:translate(0,14px)}
+100%{transform:translate(14px,0)}
+}
+@keyframes homeUidTwinkle{0%,100%{opacity:.35}50%{opacity:.95}}
+@media(prefers-reduced-motion:reduce){.home-uid-particles{display:none}}

@@ -6,6 +6,7 @@
   panel.innerHTML = '<h3>Deine CODM-UID</h3><p id="profile-uid-hint"></p><p id="profile-uid-current"></p><button type="button" class="btn" id="profile-uid-discord" hidden>Bitte füge noch Discord hinzu</button><form id="profile-uid-form" hidden><label for="profile-uid-value">Bitte füge deine UID hier ein</label><input id="profile-uid-value" type="text" inputmode="numeric" pattern="[0-9]{19}" minlength="19" maxlength="19" required autocomplete="off" placeholder="Deine 19-stellige CODM-UID"><p>Dein Discord-Benutzername und deine UID sind nach dem Speichern für alle in der UID-Liste sichtbar.</p><button type="submit" class="btn" id="profile-uid-save">UID speichern</button><button type="button" class="btn ghost" id="profile-uid-delete" hidden>UID entfernen</button></form><p id="profile-uid-status" role="status" aria-live="polite"></p>';
   profile.insertBefore(panel, document.getElementById('account-logout'));
   const $ = id => document.getElementById(id);
+  const homeUidNotice = document.getElementById('home-uid-notice');
   let entry = null, generation = 0, busy = false;
   const message = text => { $('profile-uid-status').textContent = text; };
   async function api(route, body) {
@@ -39,13 +40,16 @@
   }
   async function load() {
     const current = ++generation, user = window.YoyooAuth.user();
+    if (homeUidNotice) homeUidNotice.hidden = true;
     entry = null; render(); message('');
     if (!user) return;
     message('Deine UID wird geladen …');
     try {
       const rows = await api('yoyoo_uids?select=uid&user_id=eq.' + encodeURIComponent(user.id) + '&limit=1');
       if (current !== generation) return;
+      if (!Array.isArray(rows)) throw new Error('Die UID konnte nicht geprüft werden.');
       entry = rows[0] || null; render(); message('');
+      if (homeUidNotice) homeUidNotice.hidden = !!entry;
     } catch (error) { if (current === generation) message(error.message); }
   }
   $('profile-uid-discord').addEventListener('click', () => window.YoyooAuth.discordLogin());
@@ -65,5 +69,8 @@
   $('profile-uid-delete').addEventListener('click', () => change(true));
   window.addEventListener('yoyoo-auth-changed', load);
   window.addEventListener('yoyoo-uid-changed', load);
+  if (homeUidNotice) document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) load();
+  });
   window.yoyooAuthReady.then(load);
 })();
