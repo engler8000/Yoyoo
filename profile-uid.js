@@ -3,7 +3,7 @@
   if (!profile) return;
   const panel = document.createElement('section');
   panel.className = 'profile-uid-panel';
-  panel.innerHTML = '<p><strong>Aktuell angemeldet mit:</strong> <span id="profile-login-method"></span></p><p><strong>Konto erstellt mit:</strong> <span id="profile-signup-method"></span></p><h3>Deine CODM-UID</h3><p id="profile-uid-hint"></p><p id="profile-uid-current"></p><button type="button" class="btn" id="profile-uid-discord" hidden>Bitte füge noch Discord hinzu</button><form id="profile-uid-form" hidden><label for="profile-uid-value">Bitte füge deine UID hier ein</label><input id="profile-uid-value" type="text" inputmode="numeric" pattern="[0-9]{19}" minlength="19" maxlength="19" required autocomplete="off" placeholder="Deine 19-stellige CODM-UID"><p>Dein Discord-Benutzername und deine UID sind nach dem Speichern für alle in der UID-Liste sichtbar.</p><button type="submit" class="btn" id="profile-uid-save">UID speichern</button><button type="button" class="btn ghost" id="profile-uid-delete" hidden>UID entfernen</button></form><p id="profile-uid-status" role="status" aria-live="polite"></p>';
+  panel.innerHTML = '<h3>Deine CODM-UID</h3><p id="profile-uid-hint"></p><p id="profile-uid-current"></p><button type="button" class="btn" id="profile-uid-discord" hidden>Bitte füge noch Discord hinzu</button><form id="profile-uid-form" hidden><label for="profile-uid-value">Bitte füge deine UID hier ein</label><input id="profile-uid-value" type="text" inputmode="numeric" pattern="[0-9]{19}" minlength="19" maxlength="19" required autocomplete="off" placeholder="Deine 19-stellige CODM-UID"><p>Dein Discord-Benutzername und deine UID sind nach dem Speichern für alle in der UID-Liste sichtbar.</p><button type="submit" class="btn" id="profile-uid-save">UID speichern</button><button type="button" class="btn ghost" id="profile-uid-delete" hidden>UID entfernen</button></form><p id="profile-uid-status" role="status" aria-live="polite"></p>';
   profile.insertBefore(panel, document.getElementById('account-logout'));
   const $ = id => document.getElementById(id);
   let entry = null, generation = 0, busy = false;
@@ -29,10 +29,8 @@
     const auth = window.YoyooAuth, user = auth.user();
     panel.hidden = !user;
     if (!user) return;
-    $('profile-login-method').textContent = auth.loginMethod();
-    $('profile-signup-method').textContent = user.app_metadata?.provider === 'discord' ? 'Discord' : user.app_metadata?.provider === 'email' ? 'E-Mail' : 'Nicht verfügbar';
     $('profile-uid-current').textContent = entry ? 'Deine öffentliche UID: ' + entry.uid : 'Du hast noch keine UID veröffentlicht.';
-    $('profile-uid-discord').hidden = auth.canPublish();
+    $('profile-uid-discord').hidden = true;
     $('profile-uid-discord').textContent = auth.discord() ? 'Mit Discord anmelden' : 'Bitte füge noch Discord hinzu';
     $('profile-uid-form').hidden = !auth.canPublish();
     $('profile-uid-hint').textContent = !auth.discord() ? 'Bitte füge noch Discord hinzu, um deine UID zu veröffentlichen.' : !auth.canPublish() ? 'Melde dich mit Discord an, um deine UID zu bearbeiten.' : 'Discord verbunden: ' + auth.discordName() + '. Hier kannst du deine UID veröffentlichen oder bearbeiten.';

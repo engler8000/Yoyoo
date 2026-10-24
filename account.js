@@ -31,6 +31,7 @@
     if ($('profile-start')) $('profile-start').textContent = 'Account erstellen / anmelden';
     if ($('home-signup')) $('home-signup').hidden = false;
     clearTimeout(refreshTimer); session = null; token = '';
+    resetEmailAddition();
     updateHomeGreeting(null); notify();
     try { localStorage.removeItem(SESSION_KEY); sessionStorage.removeItem(SESSION_KEY); } catch (_) {}
     $('account-profile').hidden = true; $('account-entry').hidden = false;
@@ -113,6 +114,59 @@
       dialog.querySelectorAll('button, input').forEach(el => el.disabled = false);
     }
   }
+  const emailAddButton = document.createElement('button');
+  emailAddButton.id = 'account-email-link';
+  emailAddButton.type = 'button';
+  emailAddButton.className = 'btn';
+  emailAddButton.textContent = 'E-Mail hinzufügen';
+  emailAddButton.hidden = true;
+  const emailAddPanel = document.createElement('section');
+  emailAddPanel.id = 'account-email-add';
+  emailAddPanel.hidden = true;
+  emailAddPanel.innerHTML = '<form id="account-add-email-form"><label for="account-add-email">E-Mail-Adresse deines Kontos</label><input id="account-add-email" type="email" autocomplete="email" readonly required><p>Bestätige die E-Mail-Adresse deines Discord-Kontos, um dich damit auch per E-Mail-Code anzumelden.</p><button class="btn" type="submit">Bestätigungscode senden</button></form><form id="account-add-email-code-form" hidden><label for="account-add-email-code">Bestätigungscode aus der E-Mail</label><input id="account-add-email-code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6,10}" minlength="6" maxlength="10" required><button class="btn" type="submit">E-Mail bestätigen</button></form><button class="btn ghost" type="button" id="account-add-email-cancel">Abbrechen</button>';
+  $('account-discord-link').before(emailAddButton, emailAddPanel);
+  let emailAddUserId = '', emailAddAddress = '';
+  function resetEmailAddition() {
+    emailAddUserId = ''; emailAddAddress = '';
+    emailAddPanel.hidden = true;
+    $('account-add-email-code-form').hidden = true;
+    $('account-add-email').value = '';
+    $('account-add-email-code').value = '';
+  }
+  emailAddButton.addEventListener('click', () => {
+    if (!session?.user?.email) { status('Für dein Konto ist keine E-Mail-Adresse verfügbar.', true); return; }
+    resetEmailAddition();
+    emailAddUserId = session.user.id;
+    emailAddAddress = session.user.email;
+    $('account-add-email').value = emailAddAddress;
+    emailAddPanel.hidden = false;
+    status('');
+  });
+  $('account-add-email-form').addEventListener('submit', event => {
+    event.preventDefault();
+    run(async () => {
+      if (!emailAddUserId || session?.user?.id !== emailAddUserId) throw new Error('Bitte öffne dein Profil erneut.');
+      if (Date.now() < resendAt) throw new Error('Bitte warte noch ' + Math.ceil((resendAt - Date.now()) / 1000) + ' Sekunden, bevor du einen neuen Code anforderst.');
+      await request('otp', {email: emailAddAddress, create_user: false});
+      resendAt = Date.now() + 60000;
+      $('account-add-email-code-form').hidden = false;
+      status('Bestätigungscode angefordert. Prüfe dein Postfach und den Spam-Ordner.');
+      $('account-add-email-code').focus();
+    });
+  });
+  $('account-add-email-code-form').addEventListener('submit', event => {
+    event.preventDefault();
+    run(async () => {
+      const expectedUserId = emailAddUserId;
+      if (!expectedUserId || session?.user?.id !== expectedUserId) throw new Error('Bitte öffne dein Profil erneut.');
+      const data = await request('verify', {email: emailAddAddress, token: $('account-add-email-code').value.trim(), type: 'email'});
+      if (emailAddUserId !== expectedUserId || session?.user?.id !== expectedUserId || data.user?.id !== expectedUserId || !data.user?.email_confirmed_at) throw new Error('Die E-Mail konnte diesem Konto nicht zugeordnet werden.');
+      resetEmailAddition();
+      useSession(data);
+      status('E-Mail bestätigt. Du kannst dich mit dieser E-Mail-Adresse per Code anmelden.');
+    });
+  });
+  $('account-add-email-cancel').addEventListener('click', () => { resetEmailAddition(); status(''); });
   function profile(user) {
     if ($('profile-start')) $('profile-start').textContent = 'Mein Profil öffnen';
     if ($('home-signup')) $('home-signup').hidden = true;
@@ -126,7 +180,11 @@
     $('account-greeting').textContent = user.user_metadata?.username ? 'Hallo, ' + user.user_metadata.username + '!' : 'Willkommen in deinem Profil!';
     const identity = discordIdentity();
     $('account-discord-status').textContent = identity ? 'Discord verbunden: ' + discordName(identity) : 'Discord noch nicht verbunden.';
-    $('account-discord-link').textContent = identity ? 'Mit Discord anmelden' : 'Discord mit deinem Konto verbinden';
+    const discordLoginActive = loginMethod() === 'Discord';
+    $('account-discord-link').hidden = discordLoginActive;
+    $('account-discord-link').textContent = 'Discord hinzufügen';
+    emailAddButton.hidden = !discordLoginActive;
+    if (!discordLoginActive || (emailAddUserId && emailAddUserId !== user.id)) resetEmailAddition();
   }
   function discordIdentity() { return session?.user?.identities?.find(i => i.provider === 'discord'); }
   function discordName(identity) { const d=identity?.identity_data || {}; return d.preferred_username || d.name || d.full_name || 'Discord-Mitglied'; }
