@@ -159,7 +159,18 @@
       try { localStorage.removeItem(key); } catch (_) {}
     }
   };
-  let oauthClient;
+  const DISCORD_FLOW_LOCK='yoyoo-discord-flow-started-at';
+  function reserveDiscordFlow() {
+    const now=Date.now();
+    try {
+      const started=Number(localStorage.getItem(DISCORD_FLOW_LOCK)||0);
+      if(started&&now-started<5*60*1000) throw new Error('Eine Discord-Anmeldung läuft bereits in einem anderen Tab. Schließe sie dort ab oder starte nach fünf Minuten erneut.');
+      localStorage.setItem(DISCORD_FLOW_LOCK,String(now));
+    } catch(error) {
+      if(error?.message?.startsWith('Eine Discord-Anmeldung läuft bereits')) throw error;
+    }
+  }
+  function releaseDiscordFlow() { try { localStorage.removeItem(DISCORD_FLOW_LOCK); } catch (_) {} }  let oauthClient;
   async function client() {
     configured();
     if (!oauthClient) {
@@ -171,22 +182,24 @@
   async function discordLogin() {
     if (!/^https?:$/.test(location.protocol)) throw new Error('Discord-Anmeldung benötigt eine Website-Adresse (http oder https). Bitte öffne die lokale Vorschau.');
     const c=await client();
-    await pkceStorage.removeItem('yoyoo-discord-pkce-code-verifier');
-    const redirectTo=new URL('uid.html',location.href).href;
-    let result;
-    if (session && !discordIdentity()) {
-      if(session.expires_at*1000<Date.now()+60000) await refresh();
-      const restored=await c.auth.setSession({access_token:token,refresh_token:session.refresh_token});
-      if(restored.error) throw new Error('Bitte melde dich erneut an.');
-      if(restored.data.session) useSession(restored.data.session);
-      sessionStorage.setItem('yoyoo-discord-link-user',session.user.id);
-      result=await c.auth.linkIdentity({provider:'discord',options:{redirectTo,skipBrowserRedirect:true}});
-    } else {
-      sessionStorage.removeItem('yoyoo-discord-link-user');
-      result=await c.auth.signInWithOAuth({provider:'discord',options:{redirectTo,skipBrowserRedirect:true}});
-    }
-    if(result.error || !result.data?.url) throw new Error('Discord-Anmeldung nicht verfügbar. Der Discord-Anbieter und die Kontoverknüpfung müssen in Supabase aktiviert sein.');
-    location.assign(result.data.url);
+    reserveDiscordFlow();
+    try {
+      const redirectTo=new URL('uid.html',location.href).href;
+      let result;
+      if (session && !discordIdentity()) {
+        if(session.expires_at*1000<Date.now()+60000) await refresh();
+        const restored=await c.auth.setSession({access_token:token,refresh_token:session.refresh_token});
+        if(restored.error) throw new Error('Bitte melde dich erneut an.');
+        if(restored.data.session) useSession(restored.data.session);
+        sessionStorage.setItem('yoyoo-discord-link-user',session.user.id);
+        result=await c.auth.linkIdentity({provider:'discord',options:{redirectTo,skipBrowserRedirect:true}});
+      } else {
+        sessionStorage.removeItem('yoyoo-discord-link-user');
+        result=await c.auth.signInWithOAuth({provider:'discord',options:{redirectTo,skipBrowserRedirect:true}});
+      }
+      if(result.error || !result.data?.url) throw new Error('Discord-Anmeldung nicht verfügbar. Der Discord-Anbieter und die Kontoverknüpfung müssen in Supabase aktiviert sein.');
+      location.assign(result.data.url);
+    } catch(error) { releaseDiscordFlow(); throw error; }
   }
   async function callback() {
     const url=new URL(location.href);
@@ -197,28 +210,28 @@
     history.replaceState({},'',url);
     dialog.showModal();
     if(providerError) {
-      await pkceStorage.removeItem('yoyoo-discord-pkce-code-verifier');
+      await pkceStorage.removeItem('yoyoo-discord-pkce-code-verifier'); releaseDiscordFlow();
       const details=[providerError,providerDescription].map(safeAuthDetail).filter(Boolean).join(': ');
       throw new Error('Discord-Anmeldung fehlgeschlagen ('+details+'). Bitte starte sie erneut.');
     }
     const c=await client(); let exchangeResult;
     try { exchangeResult=await c.auth.exchangeCodeForSession(code); }
     catch(error) {
-      await pkceStorage.removeItem('yoyoo-discord-pkce-code-verifier');
+      await pkceStorage.removeItem('yoyoo-discord-pkce-code-verifier'); releaseDiscordFlow();
       const details=[error.code,error.message].map(safeAuthDetail).filter(Boolean).join(': ');
       throw new Error('Discord-Rückmeldung konnte nicht bestätigt werden'+(details?' ('+details+')':'')+'. Bitte starte die Anmeldung auf derselben Website erneut.');
     }
     const {data,error}=exchangeResult;
     if(error) {
-      await pkceStorage.removeItem('yoyoo-discord-pkce-code-verifier');
+      await pkceStorage.removeItem('yoyoo-discord-pkce-code-verifier'); releaseDiscordFlow();
       const details=[error.code,error.message].map(safeAuthDetail).filter(Boolean).join(': ');
       throw new Error('Discord-Rückmeldung konnte nicht bestätigt werden'+(details?' ('+details+')':'')+'. Bitte starte die Anmeldung auf derselben Website erneut.');
     }
     if(!data?.session) {
-      await pkceStorage.removeItem('yoyoo-discord-pkce-code-verifier');
+      await pkceStorage.removeItem('yoyoo-discord-pkce-code-verifier'); releaseDiscordFlow();
       throw new Error('Discord hat keine aktive Sitzung zurückgegeben. Bitte starte die Anmeldung erneut.');
     }
-    const expected=sessionStorage.getItem('yoyoo-discord-link-user'); sessionStorage.removeItem('yoyoo-discord-link-user');
+    releaseDiscordFlow(); const expected=sessionStorage.getItem('yoyoo-discord-link-user'); sessionStorage.removeItem('yoyoo-discord-link-user');
     if(expected&&data.session.user.id!==expected) throw new Error('Discord wurde nicht mit dem ursprünglichen Konto verbunden. Bitte melde dich erneut per E-Mail an.');
     useSession(data.session); status('Du bist mit Discord angemeldet.'); return true;
   }
