@@ -5,3 +5,5 @@
 .uid-discord-profile{color:var(--mint);text-decoration:underline;text-underline-offset:.2em}.uid-discord-profile:hover{color:var(--text)}.uid-discord-profile:focus-visible{outline:2px solid var(--mint);outline-offset:4px;border-radius:2px}
 
 .uid-main .uid-list{padding-block:0}.uid-status:empty{display:none}
+
+.uid-main h1::after{content:"";display:block;width:48px;height:3px;background:var(--mint);border-radius:5px;margin-top:.8rem;transform-origin:left}@media(prefers-reduced-motion:no-preference){.uid-main h1.rv.in::after{animation:headingLine .9s .15s both}}
