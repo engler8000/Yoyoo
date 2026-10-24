@@ -33,7 +33,20 @@
     const body=$('uid-rows');body.replaceChildren();
     for(const row of rows) {
       const tr=document.createElement('tr');
-      for(const value of [row.discord_name,row.uid]) {const td=document.createElement('td');td.textContent=value;tr.append(td);}
+      const nameCell=document.createElement('td');
+      if(typeof row.discord_id==='string' && /^[1-9][0-9]{0,19}$/.test(row.discord_id)) {
+        const profileLink=document.createElement('a');
+        profileLink.href='https://discord.com/users/'+row.discord_id;
+        profileLink.className='uid-discord-profile';
+        profileLink.textContent=row.discord_name;
+        profileLink.title='Discord-Profil von '+row.discord_name+' öffnen';
+        nameCell.append(profileLink);
+      } else {
+        nameCell.textContent=row.discord_name;
+      }
+      const uidCell=document.createElement('td');
+      uidCell.textContent=row.uid;
+      tr.append(nameCell,uidCell);
       body.append(tr);
     }
     $('uid-empty').hidden=rows.length>0||!loaded;
@@ -42,7 +55,7 @@
   async function load() {
     const current=++generation;
     try {
-      const data=await api('yoyoo_uids?select=user_id,discord_name,uid,updated_at&order=updated_at.desc&limit=1000');
+      const data=await api('yoyoo_uids?select=user_id,discord_id,discord_name,uid,updated_at&order=updated_at.desc&limit=1000');
       if(current!==generation)return;
       if(!Array.isArray(data))throw new Error('Ungültige Antwort der UID-Liste.');
       rows=data;loaded=true;render();status('');
