@@ -277,6 +277,25 @@
     try { await request('logout', {}, token); } catch (_) { failed = true; }
     finally { reset(); status(failed ? 'Lokal abgemeldet. Die serverseitige Abmeldung war wegen eines Verbindungsfehlers nicht möglich.' : 'Du bist abgemeldet. Die gespeicherte Anmeldung wurde entfernt.'); }
   }));
+  $('account-delete').addEventListener('click', () => run(async () => {
+    if (!session?.user?.id) throw new Error('Bitte melde dich zuerst an.');
+    if (!window.confirm('Möchtest du dein Konto wirklich dauerhaft löschen? Dein UID-Eintrag wird ebenfalls entfernt. Diese Aktion kann nicht rückgängig gemacht werden.')) return;
+    const accessToken = await window.YoyooAuth.accessToken();
+    const response = await fetch(config.url.replace(/\/$/, '') + '/rest/v1/rpc/yoyoo_delete_my_account', {
+      method: 'POST',
+      headers: {apikey:config.publishableKey, Authorization:'Bearer ' + accessToken, 'Content-Type':'application/json'},
+      body: '{}',
+      signal: AbortSignal.timeout(20000)
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok) {
+      if (response.status === 404 || data?.code === 'PGRST202') throw new Error('Die Kontolöschung ist noch nicht eingerichtet. Bitte führe account-delete.sql einmal im Supabase SQL Editor aus.');
+      if (response.status === 401) throw new Error('Deine Anmeldung ist abgelaufen. Bitte melde dich erneut an.');
+      throw new Error('Dein Konto konnte nicht gelöscht werden. Prüfe, ob noch gespeicherte Dateien oder andere verknüpfte Daten entfernt werden müssen.');
+    }
+    reset();
+    status('Dein Konto und dein UID-Eintrag wurden dauerhaft gelöscht.');
+  }));
   window.yoyooAuthReady = (async()=>{try{if(!await callback()) await restore();}catch(error){status(error.message,true);}})().finally(() => {
     if ($('home-signup')) $('home-signup').hidden = !$('account-profile').hidden;
     if ($('profile-start')) dialog.showModal();
