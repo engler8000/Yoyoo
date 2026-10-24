@@ -28,17 +28,17 @@
     if ($('profile-start')) $('profile-start').textContent = 'Account erstellen / anmelden';
     if ($('home-signup')) $('home-signup').hidden = false;
     clearTimeout(refreshTimer); session = null; token = '';
-    updateHomeGreeting(null);
+    updateHomeGreeting(null); notify();
     try { localStorage.removeItem(SESSION_KEY); } catch (_) {}
     $('account-profile').hidden = true; $('account-entry').hidden = false;
     $('account-code-form').hidden = true; $('account-code').value = '';
     $('account-username').value = ''; $('account-open').textContent = 'Profil';
   }
   function useSession(data) {
-    if (!data.access_token || !data.refresh_token || !data.user?.email_confirmed_at) throw new Error('Bitte melde dich erneut per E-Mail-Code an.');
+    if (!data.access_token || !data.refresh_token || !data.user?.id) throw new Error('Bitte melde dich erneut an.');
     session = { access_token: data.access_token, refresh_token: data.refresh_token,
       expires_at: data.expires_at || Math.floor(Date.now()/1000) + (data.expires_in || 3600), user: data.user };
-    token = session.access_token; persist(); profile(session.user);
+    token = session.access_token; persist(); profile(session.user); notify();
     clearTimeout(refreshTimer);
     refreshTimer = setTimeout(() => refresh().catch(() => status('Die Sitzung konnte nicht erneuert werden. Bitte prüfe deine Verbindung.', true)), Math.max(1000, session.expires_at*1000-Date.now()-60000));
   }
@@ -119,7 +119,64 @@
     $('account-open').textContent = 'Mein Profil';
     $('account-username').value = user.user_metadata?.username || '';
     $('account-greeting').textContent = user.user_metadata?.username ? 'Hallo, ' + user.user_metadata.username + '!' : 'Willkommen in deinem Profil!';
+    const identity = discordIdentity();
+    $('account-discord-status').textContent = identity ? 'Discord verbunden: ' + discordName(identity) : 'Discord noch nicht verbunden.';
+    $('account-discord-link').textContent = identity ? 'Mit Discord anmelden' : 'Discord mit deinem Konto verbinden';
   }
+  function discordIdentity() { return session?.user?.identities?.find(i => i.provider === 'discord'); }
+  function discordName(identity) { const d=identity?.identity_data || {}; return d.preferred_username || d.name || d.full_name || 'Discord-Mitglied'; }
+  function oauthSession() {
+    try { const payload=JSON.parse(atob(token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))); return !!discordIdentity() && payload.amr?.some(a=>a.method==='oauth'); } catch { return false; }
+  }
+  function notify() { window.dispatchEvent(new Event('yoyoo-auth-changed')); }
+  let oauthClient;
+  async function client() {
+    configured();
+    if (!oauthClient) {
+      if (!window.supabase) throw new Error('Die Discord-Anmeldung konnte nicht geladen werden. Bitte lade die Seite neu.');
+      oauthClient=window.supabase.createClient(config.url,config.publishableKey,{auth:{flowType:'pkce',autoRefreshToken:false,persistSession:false,detectSessionInUrl:false,storage:sessionStorage,storageKey:'yoyoo-discord-pkce'}});
+    }
+    return oauthClient;
+  }
+  async function discordLogin() {
+    if (!/^https?:$/.test(location.protocol)) throw new Error('Discord-Anmeldung benötigt eine Website-Adresse (http oder https). Bitte öffne die lokale Vorschau.');
+    const c=await client();
+    const redirectTo=new URL('uid.html',location.href).href;
+    let result;
+    if (session && !discordIdentity()) {
+      if(session.expires_at*1000<Date.now()+60000) await refresh();
+      const restored=await c.auth.setSession({access_token:token,refresh_token:session.refresh_token});
+      if(restored.error) throw new Error('Bitte melde dich erneut an.');
+      if(restored.data.session) useSession(restored.data.session);
+      sessionStorage.setItem('yoyoo-discord-link-user',session.user.id);
+      result=await c.auth.linkIdentity({provider:'discord',options:{redirectTo,skipBrowserRedirect:true}});
+    } else {
+      sessionStorage.removeItem('yoyoo-discord-link-user');
+      result=await c.auth.signInWithOAuth({provider:'discord',options:{redirectTo,skipBrowserRedirect:true}});
+    }
+    if(result.error || !result.data?.url) throw new Error('Discord-Anmeldung nicht verfügbar. Der Discord-Anbieter und die Kontoverknüpfung müssen in Supabase aktiviert sein.');
+    location.assign(result.data.url);
+  }
+  async function callback() {
+    const url=new URL(location.href);
+    if(!url.searchParams.has('code')&&!url.searchParams.has('error')) return false;
+    const code=url.searchParams.get('code'), failed=url.searchParams.has('error');
+    for(const key of ['code','error','error_code','error_description']) url.searchParams.delete(key);
+    history.replaceState({},'',url);
+    dialog.showModal();
+    if(failed) throw new Error('Discord-Anmeldung abgebrochen oder fehlgeschlagen. Bitte versuche es erneut.');
+    const c=await client(); const {data,error}=await c.auth.exchangeCodeForSession(code);
+    if(error||!data.session) throw new Error('Discord-Anmeldung konnte nicht bestätigt werden. Bitte starte sie erneut.');
+    const expected=sessionStorage.getItem('yoyoo-discord-link-user'); sessionStorage.removeItem('yoyoo-discord-link-user');
+    if(expected&&data.session.user.id!==expected) throw new Error('Discord wurde nicht mit dem ursprünglichen Konto verbunden. Bitte melde dich erneut per E-Mail an.');
+    useSession(data.session); status('Du bist mit Discord angemeldet.'); return true;
+  }
+  window.YoyooAuth={ user:()=>session?.user || null, discord:discordIdentity, discordName:()=>discordName(discordIdentity()), canPublish:oauthSession,
+    open:()=>dialog.showModal(), discordLogin:()=>{dialog.showModal();return run(discordLogin);},
+    accessToken:async()=>{if(session&&session.expires_at*1000<Date.now()+60000) await refresh();return token;}
+  };
+  $('account-discord-login').addEventListener('click',()=>run(discordLogin));
+  $('account-discord-link').addEventListener('click',()=>run(discordLogin));
   async function sendCode() {
     if (Date.now() < resendAt) throw new Error('Bitte warte noch ' + Math.ceil((resendAt - Date.now()) / 1000) + ' Sekunden, bevor du einen neuen Code anforderst.');
     await request('otp', { email, create_user: true });
@@ -169,7 +226,7 @@
     try { await request('logout', {}, token); } catch (_) { failed = true; }
     finally { reset(); status(failed ? 'Lokal abgemeldet. Die serverseitige Abmeldung war wegen eines Verbindungsfehlers nicht möglich.' : 'Du bist abgemeldet. Die gespeicherte Anmeldung wurde entfernt.'); }
   }));
-  window.yoyooAuthReady = restore().finally(() => {
+  window.yoyooAuthReady = (async()=>{try{if(!await callback()) await restore();}catch(error){status(error.message,true);}})().finally(() => {
     if ($('home-signup')) $('home-signup').hidden = !$('account-profile').hidden;
     if ($('profile-start')) dialog.showModal();
   });

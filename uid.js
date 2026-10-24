@@ -1,0 +1,68 @@
+(() => {
+  const $=id=>document.getElementById(id), config=window.YOYOO_AUTH;
+  let mine=null, rows=[], saving=false, loaded=false, generation=0;
+  const status=(s)=>{$('uid-status').textContent=s;};
+  async function api(route,body) {
+    const token=await window.YoyooAuth.accessToken();
+    const response=await fetch(config.url+'/rest/v1/'+route,{method:body===undefined?'GET':'POST',headers:{apikey:config.publishableKey,...(token?{Authorization:'Bearer '+token}:{}),'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body),signal:AbortSignal.timeout(15000)});
+    const data=await response.json().catch(()=>null);
+    if(!response.ok) {
+      if(data?.code==='23505') throw new Error('Diese UID ist bereits eingetragen.');
+      if(data?.message?.includes('DISCORD_LOGIN_REQUIRED')) throw new Error('Bitte melde dich für den Eintrag mit Discord an.');
+      if(data?.message?.includes('UID_INVALID')) throw new Error('Bitte gib eine UID mit 19 Ziffern ein.');
+      if(response.status===404 || data?.code==='PGRST202' || data?.code==='42P01' || data?.code==='PGRST205') throw new Error('Die gemeinsame UID-Liste ist noch nicht eingerichtet. Das Supabase-Setup aus UID-EINRICHTEN.md fehlt.');
+      throw new Error('Die UID-Liste ist derzeit nicht erreichbar. Bitte versuche es erneut.');
+    }
+    return data;
+  }
+  function state() {
+    const auth=window.YoyooAuth, user=auth.user();
+    mine=rows.find(r=>r.user_id===user?.id)||null;
+    $('uid-invite').hidden=!loaded||!!mine;
+    $('uid-edit').hidden=!loaded||!mine;
+    $('uid-login').hidden=!!user;
+    $('uid-discord').hidden=!user||auth.canPublish();
+    $('uid-discord').textContent=auth.discord()?'Mit Discord anmelden':'Discord mit meinem Konto verbinden';
+    $('uid-form').hidden=!loaded||!auth.canPublish();
+    $('uid-name').textContent=auth.discordName();
+    if(document.activeElement!==$('uid-value')) $('uid-value').value=mine?.uid||'';
+    $('uid-delete').hidden=!mine;
+    $('uid-requirement').textContent=!user?'Zum Hinzufügen brauchst du ein Konto und eine Discord-Anmeldung.':!auth.canPublish()?'Bitte melde dich mit Discord an. Dein bestehendes E-Mail-Konto bleibt bei der Verknüpfung erhalten.':'Dein Discord-Name wird automatisch übernommen.';
+  }
+  function render() {
+    const body=$('uid-rows');body.replaceChildren();
+    for(const row of rows) {
+      const tr=document.createElement('tr');
+      for(const value of [row.discord_name,row.uid]) {const td=document.createElement('td');td.textContent=value;tr.append(td);}
+      body.append(tr);
+    }
+    $('uid-empty').hidden=rows.length>0||!loaded;
+    $('uid-count').textContent=`${rows.length} Einträge`;state();
+  }
+  async function load() {
+    const current=++generation;
+    try {
+      const data=await api('yoyoo_uids?select=user_id,discord_name,uid,updated_at&order=updated_at.desc&limit=1000');
+      if(current!==generation)return;
+      if(!Array.isArray(data))throw new Error('Ungültige Antwort der UID-Liste.');
+      rows=data;loaded=true;render();status('');
+    }catch(e){if(current===generation)status(e.message);}
+  }
+  $('uid-login').addEventListener('click',()=>window.YoyooAuth.open());
+  $('uid-discord').addEventListener('click',()=>window.YoyooAuth.discordLogin());
+  $('uid-form').addEventListener('submit',async event=>{
+    event.preventDefault();if(saving)return;
+    const uid=$('uid-value').value.trim();
+    if(!/^[0-9]{19}$/.test(uid)){status('Die CODM-UID muss aus 19 Ziffern bestehen.');return;}
+    if(!window.YoyooAuth.canPublish()){status('Bitte melde dich zuerst mit Discord an.');return;}
+    saving=true;$('uid-save').disabled=true;
+    try{await api('rpc/yoyoo_save_uid',{new_uid:uid});await load();if(loaded&&mine)status('Deine UID ist jetzt in der Liste.');}catch(e){status(e.message);}finally{saving=false;$('uid-save').disabled=false;}
+  });
+  $('uid-delete').addEventListener('click',async()=>{
+    if(saving)return;saving=true;$('uid-delete').disabled=true;
+    try{await api('rpc/yoyoo_delete_uid',{});await load();}catch(e){status(e.message);}finally{saving=false;$('uid-delete').disabled=false;}
+  });
+  $('uid-reload').addEventListener('click',load);
+  window.addEventListener('yoyoo-auth-changed',()=>{state();load();});
+  window.yoyooAuthReady.then(()=>{state();load();});
+})();
