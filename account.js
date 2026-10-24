@@ -21,15 +21,18 @@
   let session = null, refreshTimer, refreshing;
   const consent = () => window.YoyooCookies?.accepted() === true;
   function persist() {
-    try { if (consent() && session) localStorage.setItem(SESSION_KEY, JSON.stringify(session)); else localStorage.removeItem(SESSION_KEY); }
-    catch (_) { status('Dein Browser verhindert das Speichern. Die Anmeldung bleibt nur in diesem Tab erhalten.', true); }
+    const saved = session ? JSON.stringify(session) : null;
+    try { if (saved) sessionStorage.setItem(SESSION_KEY, saved); else sessionStorage.removeItem(SESSION_KEY); }
+    catch (_) { status('Dein Browser verhindert das Speichern. Die Anmeldung bleibt nur bis zum Seitenwechsel erhalten.', true); }
+    try { if (consent() && saved) localStorage.setItem(SESSION_KEY, saved); else localStorage.removeItem(SESSION_KEY); }
+    catch (_) { status('Dein Browser verhindert das dauerhafte Speichern. Die Anmeldung bleibt nur in diesem Tab erhalten.', true); }
   }
   function reset() {
     if ($('profile-start')) $('profile-start').textContent = 'Account erstellen / anmelden';
     if ($('home-signup')) $('home-signup').hidden = false;
     clearTimeout(refreshTimer); session = null; token = '';
     updateHomeGreeting(null); notify();
-    try { localStorage.removeItem(SESSION_KEY); } catch (_) {}
+    try { localStorage.removeItem(SESSION_KEY); sessionStorage.removeItem(SESSION_KEY); } catch (_) {}
     $('account-profile').hidden = true; $('account-entry').hidden = false;
     $('account-code-form').hidden = true; $('account-code').value = '';
     $('account-username').value = ''; $('account-open').textContent = 'Profil';
@@ -55,9 +58,11 @@
     return refreshing;
   }
   async function restore() {
-    if (!consent()) return;
     try {
-      const saved = JSON.parse(localStorage.getItem(SESSION_KEY));
+      let tabSaved = null, persistentSaved = null;
+      try { tabSaved = JSON.parse(sessionStorage.getItem(SESSION_KEY)); } catch (_) {}
+      if (consent()) { try { persistentSaved = JSON.parse(localStorage.getItem(SESSION_KEY)); } catch (_) {} }
+      const saved = persistentSaved?.refresh_token ? persistentSaved : tabSaved;
       if (!saved?.refresh_token || !saved?.access_token) return;
       session = saved; token = saved.access_token;
       if (saved.expires_at*1000 < Date.now()+60000) await refresh();
