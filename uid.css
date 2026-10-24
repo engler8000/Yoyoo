@@ -7,3 +7,5 @@
 .uid-main .uid-list{padding-block:0}.uid-status:empty{display:none}
 
 .uid-main h1::after{content:"";display:block;width:48px;height:3px;background:var(--mint);border-radius:5px;margin-top:.8rem;transform-origin:left}@media(prefers-reduced-motion:no-preference){.uid-main h1.rv.in::after{animation:headingLine .9s .15s both}}
+
+.uid-search{display:flex;align-items:center;gap:.75rem;width:100%;margin:1.25rem 0;padding:.9rem 1rem;background:var(--bg-2);border:1px solid var(--line);border-radius:12px;color:var(--muted)}.uid-search svg{width:21px;height:21px;flex:none}.uid-search input{flex:1;min-width:0;width:100%;padding:0;border:0;outline:none;background:transparent;color:var(--text);font:inherit}.uid-search input::placeholder{color:var(--muted);opacity:1}.uid-search:focus-within{border-color:var(--mint);box-shadow:0 0 0 2px rgba(94,230,160,.15)}
