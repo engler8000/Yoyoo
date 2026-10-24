@@ -169,13 +169,21 @@
   async function callback() {
     const url=new URL(location.href);
     if(!url.searchParams.has('code')&&!url.searchParams.has('error')) return false;
-    const code=url.searchParams.get('code'), failed=url.searchParams.has('error');
+    const safeAuthDetail=value=>String(value||'').replace(/https?:\/\/\S+/gi,'[Link entfernt]').replace(/\b(code|access_token|refresh_token|state|verifier|code_verifier)=\S+/gi,'$1=[entfernt]').replace(/\s+/g,' ').trim().slice(0,180);
+    const code=url.searchParams.get('code'), providerError=url.searchParams.get('error'), providerDescription=url.searchParams.get('error_description');
     for(const key of ['code','error','error_code','error_description']) url.searchParams.delete(key);
     history.replaceState({},'',url);
     dialog.showModal();
-    if(failed) throw new Error('Discord-Anmeldung abgebrochen oder fehlgeschlagen. Bitte versuche es erneut.');
+    if(providerError) {
+      const details=[providerError,providerDescription].map(safeAuthDetail).filter(Boolean).join(': ');
+      throw new Error('Discord-Anmeldung fehlgeschlagen ('+details+'). Bitte starte sie erneut.');
+    }
     const c=await client(); const {data,error}=await c.auth.exchangeCodeForSession(code);
-    if(error||!data.session) throw new Error('Discord-Anmeldung konnte nicht bestätigt werden. Bitte starte sie erneut.');
+    if(error) {
+      const details=[error.code,error.message].map(safeAuthDetail).filter(Boolean).join(': ');
+      throw new Error('Discord-Rückmeldung konnte nicht bestätigt werden'+(details?' ('+details+')':'')+'. Bitte starte die Anmeldung auf derselben Website erneut.');
+    }
+    if(!data?.session) throw new Error('Discord hat keine aktive Sitzung zurückgegeben. Bitte starte die Anmeldung erneut.');
     const expected=sessionStorage.getItem('yoyoo-discord-link-user'); sessionStorage.removeItem('yoyoo-discord-link-user');
     if(expected&&data.session.user.id!==expected) throw new Error('Discord wurde nicht mit dem ursprünglichen Konto verbunden. Bitte melde dich erneut per E-Mail an.');
     useSession(data.session); status('Du bist mit Discord angemeldet.'); return true;
