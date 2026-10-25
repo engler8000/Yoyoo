@@ -573,3 +573,16 @@ main,footer,.progress,.nav .wrap>:not(.hw-toggle){transition:filter .7s ease}
 .events-showcase-art{margin:0;align-self:end;display:flex;justify-content:center;align-items:flex-end;overflow:hidden;background:radial-gradient(ellipse at bottom,#5ee6a018,transparent 68%)}
 .events-showcase-art img{display:block;width:auto;max-width:100%;height:auto;max-height:380px;object-fit:contain;animation:none!important;transform:none!important;margin-bottom:-1px}
 @media(max-width:700px){.events-showcase{grid-template-columns:1fr;gap:0}.events-showcase-copy{padding:.5rem 0 .8rem}.events-short-intro{font-size:1.05rem;max-width:26rem;margin:.65rem 0}.events-showcase-art{width:min(280px,80%);margin:0 auto}.events-showcase-art img{max-height:310px}}
+
+/* Cookie banner and mobile legal layout, 2026-10-25. */
+.cookie-banner { grid-template-columns: minmax(0, 1fr); }
+.cookie-character { display: none; }
+.cookie-copy { min-width: 0; }
+#impressum .wrap, #datenschutz .wrap { min-width: 0; }
+#impressum h2, #datenschutz h2 { overflow-wrap: anywhere; hyphens: auto; }
+#impressum .spot, #datenschutz .spot { min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 640px) {
+  #impressum h2, #datenschutz h2 { font-size: clamp(1.45rem, 6vw, 1.9rem); line-height: 1.2; }
+  #impressum h3, #datenschutz h3 { overflow-wrap: anywhere; hyphens: auto; }
+  .cookie-banner { grid-template-columns: minmax(0, 1fr); }
+}
