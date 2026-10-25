@@ -412,6 +412,7 @@
     if (!response.ok) {
       if (response.status === 404 || data?.code === 'PGRST202') throw new Error('Die Kontolöschung ist noch nicht eingerichtet. Bitte führe account-delete.sql einmal im Supabase SQL Editor aus.');
       if (response.status === 401) throw new Error('Deine Anmeldung ist abgelaufen. Bitte melde dich erneut an.');
+      if (data?.message === 'MINIGAMES_PENDING_SETTLEMENT') throw new Error('Dein Konto kann erst gelöscht werden, wenn deine laufende Minigames-Runde und alle Punktebuchungen abgeschlossen sind.');
       throw new Error('Dein Konto konnte nicht gelöscht werden. Prüfe, ob noch gespeicherte Dateien oder andere verknüpfte Daten entfernt werden müssen.');
     }
     reset();
