@@ -43,8 +43,28 @@
     session = { access_token: data.access_token, refresh_token: data.refresh_token,
       expires_at: data.expires_at || Math.floor(Date.now()/1000) + (data.expires_in || 3600), user: data.user };
     token = session.access_token; persist(); profile(session.user); notify();
+    void syncDiscordRole();
     clearTimeout(refreshTimer);
     refreshTimer = setTimeout(() => refresh().catch(() => status('Die Sitzung konnte nicht erneuert werden. Bitte prüfe deine Verbindung.', true)), Math.max(1000, session.expires_at*1000-Date.now()-60000));
+  }
+  const roleRequests = new Map();
+  async function syncDiscordRole() {
+    const current = session;
+    if (!current?.user?.identities?.some(i => i.provider === 'discord')) return;
+    const key = current.user.id;
+    const storageKey = 'yoyoo.discord-role-attempt.' + key;
+    let last = roleRequests.get(key) || 0;
+    try { last = Math.max(last, Number(sessionStorage.getItem(storageKey)) || 0); } catch (_) {}
+    if (Date.now() - last < 600000) return;
+    roleRequests.set(key, Date.now());
+    try { sessionStorage.setItem(storageKey, String(Date.now())); } catch (_) {}
+    try {
+      const response = await fetch(config.url.replace(/\/$/, '') + '/functions/v1/discord-website-role', {
+        method: 'POST', headers: { apikey: config.publishableKey, Authorization: 'Bearer ' + current.access_token },
+        signal: AbortSignal.timeout(20000)
+      });
+      if (!response.ok) console.warn('Discord-Rollenvergabe wird bei einer späteren Anmeldung erneut versucht.');
+    } catch (_) { console.warn('Discord-Rollenvergabe vorübergehend nicht erreichbar.'); }
   }
   async function refresh() {
     if (refreshing) return refreshing;
