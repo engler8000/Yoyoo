@@ -4,7 +4,7 @@ import {Chess,position,canClaim,LEVELS} from './chess-engine.mjs';
 const $=id=>document.getElementById(id),el=(tag,cls,text)=>{const n=document.createElement(tag);n.className=cls||'';if(text!==undefined)n.textContent=text;return n;};
 const button=(text,fn,ghost=false)=>{const n=el('button','btn'+(ghost?' ghost':''),text);n.type='button';n.onclick=fn;return n;};
 const symbols={wk:'♔',wq:'♕',wr:'♖',wb:'♗',wn:'♘',wp:'♙',bk:'♚',bq:'♛',br:'♜',bb:'♝',bn:'♞',bp:'♟'},names={k:'König',q:'Dame',r:'Turm',b:'Läufer',n:'Springer',p:'Bauer'},values={p:1,n:3,b:3,r:5,q:9,k:0};
-let config={difficulty:'medium',clock:10},settings={sound:false,cinema:true,motion:true,flip:false},selected=null,activeId=null,lastRevision=null,lastPly=0,queueTimer=null,apiBusy=false;
+let config={difficulty:'medium',clock:10},settings={sound:true,cinema:true,motion:true,flip:true},selected=null,activeId=null,lastRevision=null,lastPly=0,queueTimer=null,apiBusy=false;
 try{settings={...settings,...JSON.parse(localStorage.getItem('yoyoo-chess-settings')||'{}')};}catch{}
 let audio;const clockTimers=new WeakMap();
 function sound(type){if(!settings.sound)return;try{audio??=new AudioContext();audio.resume();const o=audio.createOscillator(),g=audio.createGain();o.type='sine';o.frequency.setValueAtTime(type==='mate'?660:type==='check'?520:type==='capture'?240:360,audio.currentTime);o.frequency.exponentialRampToValueAtTime(150,audio.currentTime+.16);g.gain.setValueAtTime(.06,audio.currentTime);g.gain.exponentialRampToValueAtTime(.001,audio.currentTime+.22);o.connect(g).connect(audio.destination);o.start();o.stop(audio.currentTime+.23);}catch{}}
