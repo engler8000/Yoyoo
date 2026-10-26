@@ -4,11 +4,20 @@
  const make=(tag,cls,text)=>{const n=document.createElement(tag);n.className=cls||'';if(text!==undefined)n.textContent=text;return n;};
  const btn=(text,fn,ghost=false)=>{const b=make('button','btn'+(ghost?' ghost':''),text);b.type='button';b.onclick=fn;return b;};
  const toasts=make('aside','mg-toasts');toasts.setAttribute('aria-label','Spieleinladungen');document.body.append(toasts);
- const boards=new Map(),results=new Set(),returns=new Map();
+ const boards=new Map(),results=new Set(),returns=new Map(),liveMatches=new Set();
  function allGames(){hiddenMatch=state?.match?.id||null;opened=false;signature='';render();window.scrollTo({top:0,behavior:'instant'});}
+ function playerSearch(){hiddenMatch=state?.match?.id||null;opened=true;signature='';render();window.scrollTo({top:0,behavior:'instant'});}
  if(!document.querySelector('link[href^="minigames.css"]')){const l=make('link');l.rel='stylesheet';l.href='minigames.css?v=20261026-layout-5';document.head.append(l);}
  let state,waiting=false,opened=false,hiddenMatch=null,signature='',offset=0,lastUser=null,lastNotice=0,displayKey='';const seen=new Set(),celebrated=new Set();
- function receive(next){if(!state||Date.parse(next.server_time)>=Date.parse(state.server_time))state=next;}
+ function receive(next){
+   if(state&&Date.parse(next.server_time)<Date.parse(state.server_time))return;
+   const m=next.match;
+   if(m){
+     if(['invited','lobby','funding','playing','settling','review'].includes(m.status))liveMatches.add(m.id);
+     else if(m.status==='finished'&&!liveMatches.has(m.id))hiddenMatch=m.id;
+   }
+   state=next;
+ }
  function notice(text,actions=[],mid){const box=make('div','mg-toast');box.setAttribute('role','status');if(mid)box.dataset.match=mid;box.append(make('p','',text));actions.forEach(a=>box.append(btn(a.text,a.run,a.ghost)));box.append(btn('Schließen',()=>box.remove(),true));toasts.append(box);if(!actions.length)setTimeout(()=>box.remove(),12000);while(toasts.children.length>3)toasts.firstElementChild.remove();}
  function error(message){if(app){$('mg-error').textContent=message;$('mg-error').hidden=false;}else notice(message);}
  function enter(){if(!app)location.assign(new URL('minigames.html',location.href));}
@@ -90,12 +99,12 @@
    if(m.status==='playing')panel.append(btn('Aufgeben',()=>{if(confirm('Wirklich aufgeben? Dein Gegner gewinnt die Runde und bei einem Einsatz auch die reservierten Punkte.'))act('leave',{match_id:m.id});},true));
    if(m.status==='finished'){
      if(m.bot&&m.stake>0&&m.reason!=='funding_failed')panel.append(make('p','mg-bot-accounting',m.winner===me?'+'+m.stake.toLocaleString('de-DE')+' YY Points Gewinn · '+(m.stake*2).toLocaleString('de-DE')+' inklusive Einsatz gutgeschrieben.':m.reason==='draw'?m.stake.toLocaleString('de-DE')+' YY Points Einsatz zurückgegeben.':'−'+m.stake.toLocaleString('de-DE')+' YY Points · Einsatz verloren.'));
-     if(!returns.has(m.id))returns.set(m.id,Date.now()+15000);
-     panel.append(make('p','mg-return-countdown mg-muted'),btn('Zur Spieleübersicht',allGames));
+     if(!returns.has(m.id))returns.set(m.id,Date.now()+30000);
+     panel.append(make('p','mg-return-countdown mg-muted'),btn('Zur Spielersuche',playerSearch));
      if(m.winner===me&&!celebrated.has(m.id)){celebrated.add(m.id);if(!matchMedia('(prefers-reduced-motion: reduce)').matches)for(let i=0;i<28;i++){const p=make('i','mg-confetti');p.style.setProperty('--x',Math.random()*100+'%');p.style.setProperty('--c',['#70f7c7','#b49aff','#ffce75'][i%3]);p.style.setProperty('--r',Math.random()*180+'deg');p.style.animationDelay=Math.random()*.3+'s';panel.append(p);}}
    }
  }
- function tick(){if(!app||!state)return;const pause=Math.max(0,Math.ceil((Date.parse(state.next_play_at||'1970-01-01')-Date.now()-offset)/1000));const cooldown=$('mg-cooldown');if(cooldown){cooldown.hidden=pause===0;cooldown.textContent='Spielpause · Noch '+Math.floor(pause/60)+':'+String(pause%60).padStart(2,'0')+' bis zur nächsten Runde.';}app.querySelectorAll('.mg-start-game').forEach(b=>b.disabled=pause>0||b.dataset.busy==='true');if(!state.match)return;if(state.match.status==='finished'&&state.match.id!==hiddenMatch){const left=Math.max(0,Math.ceil((returns.get(state.match.id)-Date.now())/1000));const back=app.querySelector('.mg-return-countdown');if(back)back.textContent='Zurück zu allen Spielen in '+left+' Sekunden.';if(left===0){allGames();return;}}const secs=Math.max(0,Math.ceil((Date.parse(state.match.deadline)-Date.now()-offset)/1000));const n=app.querySelector('.mg-countdown');if(n)n.textContent=secs+' Sekunden verbleibend';const bar=app.querySelector('.mg-timer span');if(bar)bar.style.width=Math.min(100,secs/90*100)+'%';}
- async function poll(){if(waiting)return false;if(!gate()){state=null;signature='';toasts.replaceChildren();return false;}const uid=window.YoyooAuth.user().id;if(lastUser!==uid){seen.clear();lastUser=uid;hiddenMatch=null;returns.clear();try{lastNotice=Number(sessionStorage.getItem('yoyoo-minigames-notice:'+uid)||0);}catch{lastNotice=0;}}try{receive(await api('snapshot'));update();if(app){$('mg-connection').textContent='Live verbunden';$('mg-error').hidden=true;}return true;}catch(e){if(app){$('mg-connection').textContent='Verbindung unterbrochen';error(e.message);}return false;}}
+ function tick(){if(!app||!state)return;const pause=Math.max(0,Math.ceil((Date.parse(state.next_play_at||'1970-01-01')-Date.now()-offset)/1000));const cooldown=$('mg-cooldown');if(cooldown){cooldown.hidden=pause===0;cooldown.textContent='Spielpause · Noch '+Math.floor(pause/60)+':'+String(pause%60).padStart(2,'0')+' bis zur nächsten Runde.';}app.querySelectorAll('.mg-start-game').forEach(b=>b.disabled=pause>0||b.dataset.busy==='true');if(!state.match)return;if(state.match.status==='finished'&&state.match.id!==hiddenMatch){const left=Math.max(0,Math.ceil((returns.get(state.match.id)-Date.now())/1000));const back=app.querySelector('.mg-return-countdown');if(back)back.textContent='Zur Spielersuche in '+left+' Sekunden.';if(left===0){playerSearch();return;}}const secs=Math.max(0,Math.ceil((Date.parse(state.match.deadline)-Date.now()-offset)/1000));const n=app.querySelector('.mg-countdown');if(n)n.textContent=secs+' Sekunden verbleibend';const bar=app.querySelector('.mg-timer span');if(bar)bar.style.width=Math.min(100,secs/90*100)+'%';}
+ async function poll(){if(waiting)return false;if(!gate()){state=null;signature='';liveMatches.clear();returns.clear();hiddenMatch=null;toasts.replaceChildren();return false;}const uid=window.YoyooAuth.user().id;if(lastUser!==uid){seen.clear();lastUser=uid;hiddenMatch=null;returns.clear();liveMatches.clear();try{lastNotice=Number(sessionStorage.getItem('yoyoo-minigames-notice:'+uid)||0);}catch{lastNotice=0;}}try{receive(await api('snapshot'));update();if(app){$('mg-connection').textContent='Live verbunden';$('mg-error').hidden=true;}return true;}catch(e){if(app){$('mg-connection').textContent='Verbindung unterbrochen';error(e.message);}return false;}}
  (async()=>{await window.yoyooAuthReady;if(app){$('mg-open-game').onclick=()=>{opened=true;render();window.scrollTo({top:0,behavior:'instant'});};$('mg-back-games').onclick=allGames;const refresh=$('mg-refresh');if(refresh)refresh.onclick=async()=>{if(waiting)return;refresh.disabled=true;refresh.textContent='Wird aktualisiert …';$('mg-refresh-status').textContent='';try{const ok=await poll();$('mg-refresh-status').textContent=ok?'Spielerliste aktualisiert.':'Aktualisierung nicht möglich. Bitte erneut versuchen.';}finally{refresh.disabled=false;refresh.textContent='Aktualisieren';}};}await poll();setInterval(poll,5000);setInterval(tick,1000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)poll();});})();
 })();
