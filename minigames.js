@@ -113,7 +113,7 @@
  (async()=>{
    await window.yoyooAuthReady;
    if(app){
-     await import('./chess-ui.mjs?v=20261026-action-2');
+     await import('./chess-ui.mjs?v=20261026-boardfx-3');
      const chessOpen=$('mg-open-chess');
      if(chessOpen)chessOpen.onclick=()=>{selectedGame='chess';opened=true;render();window.scrollTo({top:0,behavior:'instant'});};
      $('mg-open-game').onclick=()=>{selectedGame='tic_tac_toe';opened=true;render();window.scrollTo({top:0,behavior:'instant'});};
