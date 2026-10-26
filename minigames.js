@@ -5,10 +5,10 @@
  const btn=(text,fn,ghost=false)=>{const b=make('button','btn'+(ghost?' ghost':''),text);b.type='button';b.onclick=fn;return b;};
  const toasts=make('aside','mg-toasts');toasts.setAttribute('aria-label','Spieleinladungen');document.body.append(toasts);
  const boards=new Map(),results=new Set(),returns=new Map(),liveMatches=new Set();
- function allGames(){hiddenMatch=state?.match?.id||null;opened=false;signature='';render();window.scrollTo({top:0,behavior:'instant'});}
+ function allGames(){if(state?.chess_queued)act('chess_unqueue');hiddenMatch=state?.match?.id||null;opened=false;signature='';render();window.scrollTo({top:0,behavior:'instant'});}
  function playerSearch(){hiddenMatch=state?.match?.id||null;opened=true;signature='';render();window.scrollTo({top:0,behavior:'instant'});}
  if(!document.querySelector('link[href^="minigames.css"]')){const l=make('link');l.rel='stylesheet';l.href='minigames.css?v=20261026-layout-5';document.head.append(l);}
- let state,waiting=false,opened=false,hiddenMatch=null,signature='',offset=0,lastUser=null,lastNotice=0,displayKey='';const seen=new Set(),celebrated=new Set();
+ let state,waiting=false,opened=false,selectedGame='tic_tac_toe',hiddenMatch=null,signature='',offset=0,lastUser=null,lastNotice=0,displayKey='';const seen=new Set(),celebrated=new Set();
  function receive(next){
    if(state&&Date.parse(next.server_time)<Date.parse(state.server_time))return;
    const m=next.match;
@@ -16,7 +16,7 @@
      if(['invited','lobby','funding','playing','settling','review'].includes(m.status))liveMatches.add(m.id);
      else if(m.status==='finished'&&!liveMatches.has(m.id))hiddenMatch=m.id;
    }
-   state=next;
+   next.client_received_at=Date.now();state=next;
  }
  function notice(text,actions=[],mid){const box=make('div','mg-toast');box.setAttribute('role','status');if(mid)box.dataset.match=mid;box.append(make('p','',text));actions.forEach(a=>box.append(btn(a.text,a.run,a.ghost)));box.append(btn('Schließen',()=>box.remove(),true));toasts.append(box);if(!actions.length)setTimeout(()=>box.remove(),12000);while(toasts.children.length>3)toasts.firstElementChild.remove();}
  function error(message){if(app){$('mg-error').textContent=message;$('mg-error').hidden=false;}else notice(message);}
@@ -26,7 +26,7 @@
    const r=await fetch(window.YOYOO_AUTH.url.replace(/\/$/,'')+'/functions/v1/minigames-api',{method:'POST',headers:{apikey:window.YOYOO_AUTH.publishableKey,Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({action,data}),signal:AbortSignal.timeout(20000)});
    const s=await r.json().catch(()=>({}));if(!r.ok)throw Error(s.error||'Die Spielverwaltung ist gerade nicht erreichbar.');return s;
  }
- async function act(action,data={}){if(waiting)return;waiting=true;try{if(app)$('mg-error').hidden=true;receive(await api(action,data));update();if(action==='accept')enter();}catch(e){error(e.message);}finally{waiting=false;}}
+ async function act(action,data={}){if(waiting)return;waiting=true;try{if(app)$('mg-error').hidden=true;if(['bot','invite'].includes(action))data={...(selectedGame==='chess'?window.YoyooChess.options():{game:'tic_tac_toe'}),...data};receive(await api(action,data));update();if(action==='accept')enter();}catch(e){error(e.message);}finally{waiting=false;}}
  function gate(){
    const auth=window.YoyooAuth,u=auth?.user(),ready=!!(u&&auth.discord()&&u.user_metadata?.username?.trim());
    if(!app)return ready;
@@ -41,11 +41,12 @@
    if(!state)return;offset=Date.parse(state.server_time)-Date.now();const m=state.match;
    for(const box of toasts.querySelectorAll('[data-match]'))if(box.dataset.match!==m?.id||m.status!=='invited')box.remove();
    for(const n of state.notifications||[]){if(seen.has(n.id)||n.id<=lastNotice)continue;seen.add(n.id);lastNotice=n.id;try{sessionStorage.setItem('yoyoo-minigames-notice:'+state.me,String(lastNotice));}catch{}if(Date.now()-Date.parse(n.created)>60000)continue;if(m?.id===n.match_id&&m.status==='invited'&&m.guest===state.me)continue;notice(n.message);}
-   if(m?.status==='invited'&&m.guest===state.me&&!seen.has(m.id)){seen.add(m.id);notice(m.host_name+' lädt dich zu Tic Tac Toe ein.',[
+   if(m?.status==='invited'&&m.guest===state.me&&!seen.has(m.id)){seen.add(m.id);notice(m.host_name+' lädt dich zu '+(m.game==='chess'?'Schach':'Tic Tac Toe')+' ein.',[
      {text:'Akzeptieren',run:()=>act('accept',{match_id:m.id})},{text:'Ablehnen',ghost:true,run:()=>act('decline',{match_id:m.id})}],m.id);}
    if(!app){if(m&&['lobby','funding','playing','settling'].includes(m.status))enter();return;}
    if(!gate())return;
-   const sig=JSON.stringify([m,state.players,state.points_enabled,state.next_play_at,opened,hiddenMatch]);if(sig!==signature){signature=sig;render();}
+   if(m&&m.id!==hiddenMatch&&m.game==='chess')selectedGame='chess';
+   const sig=JSON.stringify([m,state.players,state.points_enabled,state.next_play_at,opened,hiddenMatch,selectedGame,state.chess_stats,state.chess_queued]);if(sig!==signature){signature=sig;render();}
    const key=m&&m.id!==hiddenMatch?m.id+':'+m.status:'';if(key!==displayKey){displayKey=key;if(key)requestAnimationFrame(()=>$('mg-match').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'start'}));}tick();
  }
  function render(){
@@ -53,10 +54,12 @@
    $('mg-hero').hidden=!!active||opened;app.classList.toggle('mg-focused',!!active||opened);
    $('mg-games').hidden=!!active||opened;$('mg-online').hidden=!!active||!opened;$('mg-match').hidden=!active;
    const list=$('mg-online-list');list.replaceChildren();$('mg-online-count').textContent=state.players.length+' Mitglieder online';
+   if(selectedGame==='chess')window.YoyooChess.search(list,state,act);else {
    const botRow=make('div','mg-row mg-bot-row'),botPerson=make('div','mg-person'),botText=make('div');botText.append(make('b','','Yoyoo Bot'),make('div','mg-muted','Sehr schwer · 95 % optimale Runden'));botPerson.append(make('span','mg-avatar','YB'),botText);
    const botForm=make('form','mg-bot-controls'),botLabel=make('label','','Dein Einsatz in YY Points'),botStake=make('input');botStake.type='number';botStake.min='0';botStake.max='100000';botStake.step='1';botStake.value='0';botStake.required=true;botStake.id='mg-bot-stake';botLabel.htmlFor=botStake.id;botLabel.append(botStake);
    const startBot=()=>{if(botForm.reportValidity())act('bot',{amount:Number(botStake.value)});};const botButton=btn('Ohne Einsatz starten',startBot);botButton.classList.add('mg-start-game');botStake.oninput=()=>{botButton.textContent=Number(botStake.value)>0?'Mit '+Number(botStake.value).toLocaleString('de-DE')+' YY Points starten':'Ohne Einsatz starten';};botForm.onsubmit=e=>{e.preventDefault();startBot();};botForm.append(botLabel,botButton);botRow.append(botPerson,botForm);list.append(botRow);
    list.append(make('p','mg-muted','Botduell: Sieg = Einsatz zurück plus gleich hoher Gewinn. Niederlage = Einsatz verloren. Unentschieden = Einsatz zurück. 95 % der Runden spielt der Bot optimal; in 5 % sind Fehler möglich. Das ist keine feste Siegquote.'));
+   }
    for(const p of state.players){const row=make('div','mg-row'),person=make('div','mg-person');person.append(make('span','mg-avatar',p.name.slice(0,2).toUpperCase()),make('b','',p.name));const paused=Date.parse(p.available_at)>Date.now()+offset;const b=btn(paused?'Spielpause':p.busy?'Im Spiel':'Einladen',()=>act('invite',{user_id:p.id}));b.classList.add('mg-start-game');b.dataset.busy=String(p.busy);b.disabled=p.busy;row.append(person,b);list.append(row);}
    if(!state.players.length)list.append(make('p','mg-muted','Gerade ist niemand verfügbar. Mitglieder erscheinen hier, wenn sie mit Discord und Website-Benutzernamen online sind.'));
    if(!active){tick();return;}const panel=$('mg-match');panel.replaceChildren();panel.classList.remove('mg-result-new','mg-is-win','mg-is-loss','mg-is-draw');
@@ -64,6 +67,7 @@
      panel.append(make('h2','',m.host===me?'Einladung verschickt':'Du wurdest eingeladen'),make('p','mg-muted',m.host_name+' × '+m.guest_name),make('p','',m.host===me?'Warte auf die Antwort. Die Einladung läuft nach 30 Sekunden ab.':'Spielst du eine Runde mit '+m.host_name+'?'),make('p','mg-countdown'));
      if(m.guest===me)panel.append(btn('Akzeptieren',()=>act('accept',{match_id:m.id})),btn('Ablehnen',()=>act('decline',{match_id:m.id}),true));else panel.append(btn('Einladung zurückziehen',()=>act('cancel',{match_id:m.id}),true));return;
    }
+   if(m.game==='chess'){if(m.status==='finished'&&!returns.has(m.id))returns.set(m.id,Date.now()+30000);window.YoyooChess.render(panel,state,act,playerSearch);return;}
    const vs=make('div','mg-vs');for(const [id,name,s] of [[m.host,m.host_name,'X'],[m.guest,m.guest_name,'O']]){const p=make('div','mg-player'+(m.status==='playing'&&m.turn===id?' active':''));p.append(make('span','mg-symbol',s),make('b','',name+(id===me?' · Du':'')));vs.append(p);if(id===m.host)vs.append(make('span','mg-muted','VS'));}panel.append(vs);
    if(m.status==='lobby'){
      panel.append(make('h2','mg-status','Euer Einsatz. Eure Entscheidung.'),make('p','mg-muted','Beide bestätigen denselben Einsatz. Bei einem Unentschieden erhält jeder seinen Einsatz zurück. Mit 0 YY Points spielt ihr ohne Einsatz.'));
@@ -106,5 +110,19 @@
  }
  function tick(){if(!app||!state)return;const pause=Math.max(0,Math.ceil((Date.parse(state.next_play_at||'1970-01-01')-Date.now()-offset)/1000));const cooldown=$('mg-cooldown');if(cooldown){cooldown.hidden=pause===0;cooldown.textContent='Spielpause · Noch '+Math.floor(pause/60)+':'+String(pause%60).padStart(2,'0')+' bis zur nächsten Runde.';}app.querySelectorAll('.mg-start-game').forEach(b=>b.disabled=pause>0||b.dataset.busy==='true');if(!state.match)return;if(state.match.status==='finished'&&state.match.id!==hiddenMatch){const left=Math.max(0,Math.ceil((returns.get(state.match.id)-Date.now())/1000));const back=app.querySelector('.mg-return-countdown');if(back)back.textContent='Zur Spielersuche in '+left+' Sekunden.';if(left===0){playerSearch();return;}}const secs=Math.max(0,Math.ceil((Date.parse(state.match.deadline)-Date.now()-offset)/1000));const n=app.querySelector('.mg-countdown');if(n)n.textContent=secs+' Sekunden verbleibend';const bar=app.querySelector('.mg-timer span');if(bar)bar.style.width=Math.min(100,secs/90*100)+'%';}
  async function poll(){if(waiting)return false;if(!gate()){state=null;signature='';liveMatches.clear();returns.clear();hiddenMatch=null;toasts.replaceChildren();return false;}const uid=window.YoyooAuth.user().id;if(lastUser!==uid){seen.clear();lastUser=uid;hiddenMatch=null;returns.clear();liveMatches.clear();try{lastNotice=Number(sessionStorage.getItem('yoyoo-minigames-notice:'+uid)||0);}catch{lastNotice=0;}}try{receive(await api('snapshot'));update();if(app){$('mg-connection').textContent='Live verbunden';$('mg-error').hidden=true;}return true;}catch(e){if(app){$('mg-connection').textContent='Verbindung unterbrochen';error(e.message);}return false;}}
- (async()=>{await window.yoyooAuthReady;if(app){$('mg-open-game').onclick=()=>{opened=true;render();window.scrollTo({top:0,behavior:'instant'});};$('mg-back-games').onclick=allGames;const refresh=$('mg-refresh');if(refresh)refresh.onclick=async()=>{if(waiting)return;refresh.disabled=true;refresh.textContent='Wird aktualisiert …';$('mg-refresh-status').textContent='';try{const ok=await poll();$('mg-refresh-status').textContent=ok?'Spielerliste aktualisiert.':'Aktualisierung nicht möglich. Bitte erneut versuchen.';}finally{refresh.disabled=false;refresh.textContent='Aktualisieren';}};}await poll();setInterval(poll,5000);setInterval(tick,1000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)poll();});})();
+ (async()=>{
+   await window.yoyooAuthReady;
+   if(app){
+     await import('./chess-ui.mjs?v=20261026-chess-1');
+     const chessOpen=$('mg-open-chess');
+     if(chessOpen)chessOpen.onclick=()=>{selectedGame='chess';opened=true;render();window.scrollTo({top:0,behavior:'instant'});};
+     $('mg-open-game').onclick=()=>{selectedGame='tic_tac_toe';opened=true;render();window.scrollTo({top:0,behavior:'instant'});};
+     $('mg-back-games').onclick=allGames;
+     const refresh=$('mg-refresh');
+     if(refresh)refresh.onclick=async()=>{if(waiting)return;refresh.disabled=true;refresh.textContent='Wird aktualisiert …';$('mg-refresh-status').textContent='';try{const ok=await poll();$('mg-refresh-status').textContent=ok?'Spielerliste aktualisiert.':'Aktualisierung nicht möglich. Bitte erneut versuchen.';}finally{refresh.disabled=false;refresh.textContent='Aktualisieren';}};
+   }
+   await poll();
+   if(app){const code=new URL(location.href).searchParams.get('chess');if(code&&/^[a-f0-9]{48}$/.test(code)){selectedGame='chess';await act('chess_join',{code});}}
+   setInterval(poll,5000);setInterval(tick,1000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)poll();});
+ })();
 })();
