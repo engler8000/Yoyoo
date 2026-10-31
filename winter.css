@@ -1,0 +1,71 @@
+/* Winter decorations stay separate from the standard theme. */
+.winter-snow {
+  position: fixed;
+  inset: 0;
+  top: var(--winter-header-height, 64px);
+  z-index: 18;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+}
+.winter-flake {
+  position: absolute;
+  top: -12px;
+  left: var(--left);
+  width: var(--size);
+  height: var(--size);
+  border-radius: 50%;
+  background: #effaff;
+  opacity: var(--opacity);
+  animation: winter-fall var(--duration) var(--delay) linear infinite;
+}
+@keyframes winter-fall {
+  from { transform: translate3d(0, -12px, 0); }
+  to { transform: translate3d(var(--drift), calc(100dvh + 24px), 0); }
+}
+/* The caps use their own element so the existing hover glow is preserved. */
+.winter-capped { position: relative; }
+.spot.winter-capped { overflow: visible; }
+.spot.winter-capped::before { border-radius: inherit; }
+/* Clip only the moving sheen, leaving the snow above the card visible. */
+.tier.winter-capped::after { content: none; }
+.winter-card-effects {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  overflow: hidden;
+  pointer-events: none;
+}
+.winter-card-effects::after {
+  content: "";
+  position: absolute;
+  top: -40%;
+  bottom: -40%;
+  left: -60%;
+  width: 40%;
+  background: linear-gradient(100deg, transparent, rgba(var(--tc), .16), transparent);
+  transform: skewX(-18deg);
+  animation: sheen 9s ease-in-out infinite;
+}
+.premium > .winter-card-effects::after { animation-delay: 3.5s; }
+.winter-cap {
+  position: absolute;
+  z-index: 3;
+  top: calc(var(--cap-height) * -.65);
+  left: var(--cap-left);
+  width: var(--cap-width);
+  max-width: 360px;
+  height: var(--cap-height);
+  filter: drop-shadow(0 1px 1px #001d1926);
+  pointer-events: none;
+}
+.winter-cap svg { display: block; width: 100%; height: 100%; overflow: visible; }
+@media (max-width: 640px) {
+  .winter-flake:nth-child(n + 43) { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .winter-snow { display: none; }
+}
+@media print {
+  .winter-snow, .winter-cap { display: none; }
+}
