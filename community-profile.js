@@ -30,6 +30,39 @@
   const nav = $('account-open');
   nav.removeAttribute('aria-haspopup'); nav.removeAttribute('aria-controls');
   if (location.pathname.endsWith('/profil.html')) nav.setAttribute('aria-current','page');
+  // Auf dem Handy bleibt zunächst nur eine kompakte Menüzeile sichtbar.
+  const navigation = document.querySelector('header.nav nav');
+  const menu = navigation.querySelector('ul');
+  const phone = window.matchMedia('(max-width: 680px)');
+  const toggle = document.createElement('button');
+  toggle.type = 'button'; toggle.className = 'mobile-menu-toggle';
+  menu.id = 'community-navigation';
+  toggle.setAttribute('aria-controls', menu.id);
+  const current = navigation.querySelector('[aria-current="page"]');
+  const menuLabel = document.createElement('span');
+  menuLabel.textContent = 'Menü';
+  const pageLabel = document.createElement('span'); pageLabel.className = 'mobile-menu-current';
+  pageLabel.textContent = current === nav ? 'Mein Profil' : current?.textContent.trim() || 'Yoyoo Community';
+  const arrow = document.createElementNS('http://www.w3.org/2000/svg','svg');
+  arrow.setAttribute('viewBox','0 0 24 24'); arrow.setAttribute('aria-hidden','true'); arrow.classList.add('mobile-menu-arrow');
+  const chevron = document.createElementNS(arrow.namespaceURI,'path'); chevron.setAttribute('d','m6 9 6 6 6-6'); arrow.append(chevron);
+  toggle.append(menuLabel,pageLabel,arrow); navigation.prepend(toggle);
+  function setMenu(open) {
+    const expanded = phone.matches && open;
+    navigation.classList.toggle('mobile-menu-expanded',expanded);
+    toggle.setAttribute('aria-expanded',String(expanded));
+    toggle.setAttribute('aria-label',expanded ? 'Navigation einklappen' : 'Navigation ausklappen');
+    menu.inert = phone.matches && !expanded;
+  }
+  toggle.addEventListener('click',()=>setMenu(!navigation.classList.contains('mobile-menu-expanded')));
+  navigation.addEventListener('keydown',event=>{
+    if(event.key==='Escape' && phone.matches && navigation.classList.contains('mobile-menu-expanded')) {
+      setMenu(false); toggle.focus();
+    }
+  });
+  menu.addEventListener('click',event=>{if(event.target.closest('a,button') && phone.matches)setMenu(false);});
+  phone.addEventListener('change',()=>setMenu(false));
+  navigation.classList.add('mobile-menu-ready'); setMenu(false);
   let avatar = '', avatarUser = '', loadId = 0, editing = false;
   const safeImage = value => typeof value === 'string' && value.length <= 100000 && /^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(value);
   function paintAvatar(el) {

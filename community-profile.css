@@ -1,4 +1,5 @@
 .community-icon{width:21px;height:21px;flex:none;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle}
+.mobile-menu-toggle{display:none}
 header.nav nav a{display:inline-flex;align-items:center;gap:6px}header.nav nav a .community-icon{width:17px;height:17px}
 header.nav .wrap{width:min(1480px,100% - 2.5rem);gap:16px}header.nav nav{min-width:0}header.nav ul{gap:4px}header.nav .brand{white-space:nowrap;font-size:1rem}header.nav .discord-link{font-size:.8rem;padding:.7rem 1rem;white-space:nowrap}
 header.nav ul #account-open{display:inline-flex;align-items:center;gap:8px;padding:4px 10px 4px 4px;max-width:195px}#account-open[aria-current=page]{box-shadow:0 0 0 1px var(--mint)}
@@ -19,3 +20,11 @@ header.nav ul #account-open{display:inline-flex;align-items:center;gap:8px;paddi
 @media(min-width:1120px) and (max-width:1380px){header.nav ul a{font-size:.75rem;padding:.35rem .45rem}}
 @media(max-width:1119px){header.nav .wrap>nav ul{flex-wrap:wrap!important;overflow-x:visible!important;justify-content:center;row-gap:5px!important}header.nav ul a{font-size:.75rem!important;padding:.4rem .5rem!important}header.nav nav a .community-icon{width:16px;height:16px}header.nav .wrap{padding-inline:10px}.profile-shell{padding-top:24px}}
 @media(max-width:680px){.profile-shell{padding:22px 14px 40px;width:100%}.profile-heading{margin-bottom:20px}.profile-heading p{font-size:.85rem}.community-card{padding:18px 16px;border-radius:12px}.community-card-heading{gap:12px}.profile-connections{grid-template-columns:1fr;gap:0}.profile-avatar-editor{align-items:flex-start;gap:14px}.profile-avatar-preview{width:60px;height:60px}#account-username-form{grid-template-columns:1fr;gap:6px}#account-username-form .btn{grid-column:1;grid-row:4;justify-self:stretch;margin-top:8px}#account-username-form #username-hint{grid-row:3}.profile-action-row{grid-template-columns:1fr;gap:14px}.profile-action-row>div{border-left:0;border-top:1px solid var(--line);padding:14px 0 0}.profile-action-row>#account-logout{justify-self:start}.profile-inline .btn{min-height:44px}.profile-inline #account-entry,.profile-inline #account-code-form{padding:20px 16px}header.nav ul #account-open{font-size:.75rem}.nav-profile-name{max-width:100px}}
+@media(max-width:680px){
+  header.nav .mobile-menu-toggle{display:flex;align-items:center;gap:12px;width:100%;min-height:44px;padding:6px 8px;border:0;background:transparent;color:var(--text);font:600 .9rem var(--font);text-align:left;cursor:pointer}
+  .mobile-menu-current{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--mint);font-size:.8rem;font-weight:500}
+  .mobile-menu-arrow{width:22px;height:22px;flex:none;fill:none;stroke:var(--mint);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .mobile-menu-expanded .mobile-menu-arrow{transform:rotate(180deg)}
+  header.nav .wrap>nav.mobile-menu-ready:not(.mobile-menu-expanded) ul{display:none!important}
+  header.nav .wrap>nav.mobile-menu-expanded ul{max-height:calc(100dvh - 80px);overflow-y:auto!important;padding-block:8px!important;border-top:1px solid var(--line)}
+}
