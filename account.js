@@ -3,6 +3,10 @@
   const $ = id => document.getElementById(id);
   const dialog = $('account-dialog');
   const config = window.YOYOO_AUTH || {};
+  function openAccount() {
+    if (location.pathname.endsWith('/profil.html')) { document.getElementById('account-dialog').scrollIntoView({block:'start'}); return; }
+    dialog.showModal();
+  }
   let email = '', token = '', busy = false, resendAt = 0;
   const SESSION_KEY = 'yoyoo.auth.v1';
   function updateHomeGreeting(user) {
@@ -36,7 +40,7 @@
     try { localStorage.removeItem(SESSION_KEY); sessionStorage.removeItem(SESSION_KEY); } catch (_) {}
     $('account-profile').hidden = true; $('account-entry').hidden = false;
     $('account-code-form').hidden = true; $('account-code').value = '';
-    $('account-username').value = ''; $('account-open').textContent = 'Profil';
+    $('account-username').value = ''; $('account-open').textContent = 'Profil'; notify();
   }
   function useSession(data) {
     if (!data.access_token || !data.refresh_token || !data.user?.id) throw new Error('Bitte melde dich erneut an.');
@@ -364,7 +368,7 @@
     useSession(data.session); status('Du bist mit Discord angemeldet.'); return true;
   }
   window.YoyooAuth={ loginMethod, user:()=>session?.user || null, discord:discordIdentity, discordName:()=>discordName(discordIdentity()), canPublish:oauthSession,
-    open:()=>dialog.showModal(), discordLogin:()=>{dialog.showModal();return run(discordLogin);},
+    open:()=>openAccount(), discordLogin:()=>{openAccount();return run(discordLogin);},
     accessToken:async()=>{if(session&&session.expires_at*1000<Date.now()+60000) await refresh();return token;}
   };
   $('account-discord-login').addEventListener('click',()=>run(discordLogin));
@@ -378,7 +382,7 @@
     $('account-code').value = '';
     status('Code angefordert für ' + email + '. Er kann einige Minuten unterwegs sein. Keine E-Mail erhalten? Schau bitte auch in deinem Spam-Ordner nach.');
   }
-  $('account-open').addEventListener('click', () => dialog.showModal());
+  $('account-open').addEventListener('click', () => { location.href = 'profil.html'; });
   $('account-close').addEventListener('click', () => dialog.close());
   $('account-email-form').addEventListener('submit', event => {
     event.preventDefault();
@@ -410,7 +414,7 @@
       if (!session) throw new Error('Bitte melde dich zuerst an.');
       if (session.expires_at*1000 < Date.now()+60000) await refresh();
       const user = await request('user', {data: {username}}, token, 'PUT');
-      session.user = user; persist(); profile(user); status('Dein Benutzername wurde gespeichert.');
+      session.user = user; persist(); profile(user); notify(); status('Dein Benutzername wurde gespeichert.');
     });
   });
   $('account-logout').addEventListener('click', () => run(async () => {
@@ -440,7 +444,7 @@
   }));
   window.yoyooAuthReady = (async()=>{try{if(!await callback()) await restore();}catch(error){status(error.message,true);}})().finally(() => {
     if ($('home-signup')) $('home-signup').hidden = !$('account-profile').hidden;
-    if ($('profile-start')) dialog.showModal();
+    // Die Profilseite zeigt das Konto direkt im Seiteninhalt.
   });
-  if ($('profile-start')) $('profile-start').addEventListener('click', () => dialog.showModal());
+  if ($('profile-start')) $('profile-start').addEventListener('click', openAccount);
 })();
