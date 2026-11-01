@@ -33,6 +33,9 @@
   // Auf dem Handy bleibt zunächst nur eine kompakte Menüzeile sichtbar.
   const navigation = document.querySelector('header.nav nav');
   const menu = navigation.querySelector('ul');
+  const menuPanel = document.createElement('div'); menuPanel.className = 'mobile-menu-panel';
+  const menuClip = document.createElement('div'); menuClip.className = 'mobile-menu-clip';
+  menu.before(menuPanel); menuPanel.append(menuClip); menuClip.append(menu);
   const phone = window.matchMedia('(max-width: 680px)');
   const toggle = document.createElement('button');
   toggle.type = 'button'; toggle.className = 'mobile-menu-toggle';

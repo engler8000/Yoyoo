@@ -23,8 +23,11 @@ header.nav ul #account-open{display:inline-flex;align-items:center;gap:8px;paddi
 @media(max-width:680px){
   header.nav .mobile-menu-toggle{display:flex;align-items:center;gap:12px;width:100%;min-height:44px;padding:6px 8px;border:0;background:transparent;color:var(--text);font:600 .9rem var(--font);text-align:left;cursor:pointer}
   .mobile-menu-current{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--mint);font-size:.8rem;font-weight:500}
-  .mobile-menu-arrow{width:22px;height:22px;flex:none;fill:none;stroke:var(--mint);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .mobile-menu-arrow{width:22px;height:22px;flex:none;fill:none;stroke:var(--mint);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .45s cubic-bezier(.4,0,.2,1)}
   .mobile-menu-expanded .mobile-menu-arrow{transform:rotate(180deg)}
-  header.nav .wrap>nav.mobile-menu-ready:not(.mobile-menu-expanded) ul{display:none!important}
-  header.nav .wrap>nav.mobile-menu-expanded ul{max-height:calc(100dvh - 80px);overflow-y:auto!important;padding-block:8px!important;border-top:1px solid var(--line)}
+  .mobile-menu-ready .mobile-menu-panel{display:grid;grid-template-rows:0fr;visibility:hidden;pointer-events:none;transition:grid-template-rows .45s cubic-bezier(.4,0,.2,1),visibility 0s .45s}
+  .mobile-menu-ready.mobile-menu-expanded .mobile-menu-panel{grid-template-rows:1fr;visibility:visible;pointer-events:auto;transition:grid-template-rows .45s cubic-bezier(.4,0,.2,1),visibility 0s}
+  .mobile-menu-clip{min-height:0;overflow:hidden}
+  header.nav .wrap>nav.mobile-menu-ready ul{display:flex!important;max-height:calc(100dvh - 80px);overflow-y:auto!important;padding-block:8px!important;border-top:1px solid var(--line)}
 }
+@media(max-width:680px) and (prefers-reduced-motion:reduce){.mobile-menu-ready .mobile-menu-panel,.mobile-menu-ready.mobile-menu-expanded .mobile-menu-panel,.mobile-menu-arrow{transition:none}}
