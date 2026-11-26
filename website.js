@@ -8,7 +8,7 @@
     var clamp = function (v, a, b) { return Math.min(b, Math.max(a, v)); };
 
     /* Discord-Links */
-    var DISCORD_URL = "https://discord.gg/kH43JcdM88";
+    var DISCORD_URL = "https://discord.gg/yoyoo-codm";
     $$(".discord-link").forEach(function (a) { a.href = DISCORD_URL; a.target = "_blank"; a.rel = "noopener"; });
 
     if (!("IntersectionObserver" in window)) { root.classList.remove("js"); window.__ready = 1; return; }

@@ -110,7 +110,14 @@
  }
  function tick(){if(!app||!state)return;const pause=Math.max(0,Math.ceil((Date.parse(state.next_play_at||'1970-01-01')-Date.now()-offset)/1000));const cooldown=$('mg-cooldown');if(cooldown){cooldown.hidden=pause===0;cooldown.textContent='Spielpause · Noch '+Math.floor(pause/60)+':'+String(pause%60).padStart(2,'0')+' bis zur nächsten Runde.';}app.querySelectorAll('.mg-start-game').forEach(b=>b.disabled=pause>0||b.dataset.busy==='true');if(!state.match)return;if(state.match.status==='finished'&&state.match.id!==hiddenMatch){const left=Math.max(0,Math.ceil((returns.get(state.match.id)-Date.now())/1000));const back=app.querySelector('.mg-return-countdown');if(back)back.textContent='Zur Spielersuche in '+left+' Sekunden.';if(left===0){playerSearch();return;}}const secs=Math.max(0,Math.ceil((Date.parse(state.match.deadline)-Date.now()-offset)/1000));const n=app.querySelector('.mg-countdown');if(n)n.textContent=secs+' Sekunden verbleibend';const bar=app.querySelector('.mg-timer span');if(bar)bar.style.width=Math.min(100,secs/90*100)+'%';}
  async function poll(){if(waiting)return false;if(!gate()){state=null;signature='';liveMatches.clear();returns.clear();hiddenMatch=null;toasts.replaceChildren();return false;}const uid=window.YoyooAuth.user().id;if(lastUser!==uid){seen.clear();lastUser=uid;hiddenMatch=null;returns.clear();liveMatches.clear();try{lastNotice=Number(sessionStorage.getItem('yoyoo-minigames-notice:'+uid)||0);}catch{lastNotice=0;}}try{receive(await api('snapshot'));update();if(app){$('mg-connection').textContent='Live verbunden';$('mg-error').hidden=true;}return true;}catch(e){if(app){$('mg-connection').textContent='Verbindung unterbrochen';error(e.message);}return false;}}
+ function installPokerCard(){
+   const games=$('mg-games');if(!games||$('mg-open-poker'))return;
+   const card=document.createElement('a');card.className='mg-game pk-game-card';card.id='mg-open-poker';card.href='poker.html';
+   card.innerHTML='<div class="pk-card-art" aria-hidden="true"><span>♠</span><span>♥</span><span>♦</span><span>♣</span><b>A</b></div><div><span class="mg-chip">Solo · Gegen Bot</span><h2>Five Card Poker</h2><p>Tausche bis zu drei Karten, stell die stärkste Hand zusammen und sammle reine Spielpunkte.</p><strong>Karten geben</strong></div>';
+   games.append(card);
+ }
  (async()=>{
+   installPokerCard();
    await window.yoyooAuthReady;
    if(app){
      await import('./chess-ui.mjs?v=20261027-perspektive-sofortzug-1');
