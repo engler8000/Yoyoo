@@ -13,12 +13,13 @@ function preferences(){const d=el('details','ch-settings'),summary=el('summary',
 let rerender;
 function share(url){if(navigator.clipboard?.writeText)navigator.clipboard.writeText(url).catch(()=>prompt('Einladungslink kopieren:',url));else prompt('Einladungslink kopieren:',url);}
 export function options(){return {...config,game:'chess'};}
-export function search(list,state,act){
+export function search(list,state,act,mode='online'){
  list.append(el('p','mg-muted','Schach · Freunde herausfordern, automatisch suchen oder gegen den Yoyoo Bot trainieren.'));
  const stats=state.chess_stats||{wins:0,losses:0,draws:0},total=Number(stats.wins)+Number(stats.losses)+Number(stats.draws);list.append(el('div','ch-stats',`${stats.wins} Siege · ${stats.losses} Niederlagen · ${stats.draws} Remis · ${total?Math.round(stats.wins/total*100):0} % Siege`));
  const row=el('div','ch-search-config');row.append(selectControl('Schachuhr',[[0,'Ohne Uhr · 24 h je Zug'],[5,'5 Minuten + 2 Sekunden'],[10,'10 Minuten + 2 Sekunden'],[15,'15 Minuten + 2 Sekunden']],config.clock,v=>config.clock=Number(v)));list.append(row);
- const tools=el('div','mg-actions');tools.append(button(state.chess_queued?'Suche beenden':'Automatisch Gegner suchen',()=>act(state.chess_queued?'chess_unqueue':'chess_queue',options())),button('Privaten Einladungslink erstellen',()=>act('chess_private',options()),true));list.append(tools);
+ if(mode==='online'){const tools=el('div','mg-actions');tools.append(button(state.chess_queued?'Suche beenden':'Automatisch Gegner suchen',()=>act(state.chess_queued?'chess_unqueue':'chess_queue',options())));list.append(tools);}
  if(state.chess_queued){list.append(el('p','mg-muted','Suche läuft · Partien starten ohne Einsatz. Beide können in der Lobby einen Einsatz vereinbaren.'));if(!queueTimer)queueTimer=setInterval(()=>{if(document.getElementById('mg-online')?.hidden){clearInterval(queueTimer);queueTimer=null;return;}act('chess_queue',options());},20000);}else if(queueTimer){clearInterval(queueTimer);queueTimer=null;}
+ if(mode!=='bot'){list.append(preferences());return;}
  const box=el('div','ch-bot-box'),person=el('div','mg-person');person.append(el('span','mg-avatar','♞'),el('b','','Yoyoo Bot'));box.append(person);
  const form=el('form','ch-bot-form'),hint=el('p','mg-muted'),label=el('label','ch-label','Dein Einsatz in YY Points'),amount=el('input');amount.type='number';amount.min='0';amount.step='1';amount.value='0';amount.required=true;label.append(amount);
  const update=()=>{const l=LEVELS[config.difficulty];amount.max=l.cap;amount.disabled=l.cap===0;if(!l.cap)amount.value='0';if(Number(amount.value)>l.cap)amount.value=String(l.cap);hint.textContent=!l.cap?'Leicht ist Training ohne Einsatz.':`Maximal ${l.cap} YY Points Einsatz · Sieg: Einsatz zurück + ${Math.round(l.bonus*100)} % Gewinn. Niederlage: Einsatz verloren. Remis: Einsatz zurück.`;};
