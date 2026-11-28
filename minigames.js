@@ -54,36 +54,44 @@
    $('mg-hero').hidden=!!active||opened;app.classList.toggle('mg-focused',!!active||opened);
    $('mg-games').hidden=!!active||opened;$('mg-online').hidden=!!active||!opened;$('mg-match').hidden=!active;
    const list=$('mg-online-list');list.replaceChildren();$('mg-online-count').textContent=state.players.length+' Mitglieder online';
-   if(playMode==='choose'){
+   if(!active&&playMode==='choose'){
      list.append(make('h2','',selectedGame==='chess'?'Wie möchtest du Schach spielen?':'Wie möchtest du Tic Tac Toe spielen?'));
      const modes=make('div','mg-mode-grid');modes.append(btn('Gegen den Bot',()=>{playMode='bot';signature='';render();}),btn('Gegen Menschen',()=>{playMode='human';signature='';render();},true));list.append(modes,make('p','mg-muted','Du kannst jederzeit wieder zur Spielauswahl zurückkehren.'));tick();return;
    }
-   if(playMode==='human'){
+   if(!active&&playMode==='human'){
      list.append(make('h2','','Wie möchtest du einen Gegner finden?'));
      const modes=make('div','mg-mode-grid');modes.append(btn('Online-Spieler auswählen',()=>{playMode='online';signature='';render();}),btn('Spieler über Discord finden',()=>{playMode='discord';signature='';render();},true));list.append(modes,btn('Zurück',()=>{playMode='choose';signature='';render();},true));tick();return;
    }
-   if(playMode==='discord'){
+   if(!active&&playMode==='discord'){
      list.append(make('h2','','Spieler über Discord finden'),make('p','mg-muted','Der Bot markiert die Minigames-Rolle im Discord-Kanal und fügt einen sicheren Beitreten-Button hinzu. Die Nachricht wird bei Spielstart, Ende oder Schließen der Lobby aktualisiert.'));
      const actions=make('div','mg-actions');actions.append(btn('Spielersuche auf Discord posten',()=>act('discord')),btn('Zurück',()=>{playMode='human';signature='';render();},true));list.append(actions);tick();return;
    }
-   if(selectedGame==='chess')window.YoyooChess.search(list,state,act,playMode);else if(playMode==='bot') {
+   if(!active&&selectedGame==='chess')window.YoyooChess.search(list,state,act,playMode);else if(!active&&playMode==='bot') {
    const botRow=make('div','mg-row mg-bot-row'),botPerson=make('div','mg-person'),botText=make('div');botText.append(make('b','','Yoyoo Bot'),make('div','mg-muted','Sehr schwer · 95 % optimale Runden'));botPerson.append(make('span','mg-avatar','YB'),botText);
    const botForm=make('form','mg-bot-controls'),botLabel=make('label','','Dein Einsatz in YY Points'),botStake=make('input');botStake.type='number';botStake.min='0';botStake.max='100000';botStake.step='1';botStake.value='0';botStake.required=true;botStake.id='mg-bot-stake';botLabel.htmlFor=botStake.id;botLabel.append(botStake);
    const startBot=()=>{if(botForm.reportValidity())act('bot',{amount:Number(botStake.value)});};const botButton=btn('Ohne Einsatz starten',startBot);botButton.classList.add('mg-start-game');botStake.oninput=()=>{botButton.textContent=Number(botStake.value)>0?'Mit '+Number(botStake.value).toLocaleString('de-DE')+' YY Points starten':'Ohne Einsatz starten';};botForm.onsubmit=e=>{e.preventDefault();startBot();};botForm.append(botLabel,botButton);botRow.append(botPerson,botForm);list.append(botRow);
    list.append(make('p','mg-muted','Botduell: Sieg = Einsatz zurück plus gleich hoher Gewinn. Niederlage = Einsatz verloren. Unentschieden = Einsatz zurück. 95 % der Runden spielt der Bot optimal; in 5 % sind Fehler möglich. Das ist keine feste Siegquote.'));
    }
-   if(playMode==='online'){
+   if(!active&&playMode==='online'){
      for(const p of state.players){const row=make('div','mg-row'),person=make('div','mg-person');person.append(make('span','mg-avatar',p.name.slice(0,2).toUpperCase()),make('b','',p.name));const paused=Date.parse(p.available_at)>Date.now()+offset;const b=btn(paused?'Spielpause':p.busy?'Im Spiel':'Einladen',()=>act('invite',{user_id:p.id}));b.classList.add('mg-start-game');b.dataset.busy=String(p.busy);b.disabled=p.busy;row.append(person,b);list.append(row);}
      if(!state.players.length)list.append(make('p','mg-muted','Gerade ist niemand verfügbar. Mitglieder erscheinen hier, wenn sie mit Discord und Website-Benutzernamen online sind.'));
      list.append(btn('Andere Suche wählen',()=>{playMode='human';signature='';render();},true));
-   }else list.append(btn('Zurück',()=>{playMode='choose';signature='';render();},true));
+   }else if(!active)list.append(btn('Zurück',()=>{playMode='choose';signature='';render();},true));
    if(!active){tick();return;}const panel=$('mg-match');panel.replaceChildren();panel.classList.remove('mg-result-new','mg-is-win','mg-is-loss','mg-is-draw');
    if(m.status==='invited'){
      panel.append(make('h2','',m.host===me?'Einladung verschickt':'Du wurdest eingeladen'),make('p','mg-muted',m.host_name+' × '+m.guest_name),make('p','',m.host===me?'Warte auf die Antwort. Die Einladung läuft nach 30 Sekunden ab.':'Spielst du eine Runde mit '+m.host_name+'?'),make('p','mg-countdown'));
      if(m.guest===me)panel.append(btn('Akzeptieren',()=>act('accept',{match_id:m.id})),btn('Ablehnen',()=>act('decline',{match_id:m.id}),true));else panel.append(btn('Einladung zurückziehen',()=>act('cancel',{match_id:m.id}),true));return;
    }
    if(m.game==='chess'){if(m.status==='finished'&&!returns.has(m.id))returns.set(m.id,Date.now()+30000);window.YoyooChess.render(panel,state,act,playerSearch);return;}
-   if(m.private_code&&!m.guest){panel.append(make('h2','mg-status','Deine Discord-Lobby ist offen'),make('p','mg-muted','Der Discord-Bot sucht nach einem Gegner. Die Einladung ist zehn Minuten gültig.'),btn('Lobby schließen',()=>act('leave',{match_id:m.id}),true));return;}
+   if(m.private_code&&!m.guest){
+     const lobby=make('div','mg-waiting-lobby');lobby.setAttribute('aria-live','polite');
+     const header=make('div','mg-lobby-head');header.append(make('span','mg-lobby-kicker','TIC TAC TOE · DISCORD-LOBBY'),make('h2','','Dein Warteraum ist geöffnet'),make('p','mg-muted','Die Spielersuche läuft auf Discord. Sobald jemand beitritt, erscheint die Person automatisch hier.'));
+     const seats=make('div','mg-lobby-seats'),host=make('div','mg-lobby-seat is-ready'),hostCopy=make('div');hostCopy.append(make('span','mg-lobby-label','HOST'),make('b','',m.host_name+(m.host===me?' · Du':'')),make('small','','Bereit in der Lobby'));host.append(make('span','mg-lobby-avatar',(m.host_name||'DU').slice(0,2).toUpperCase()),hostCopy);
+     const pulse=make('div','mg-lobby-vs');pulse.append(make('span','','VS'));
+     const guest=make('div','mg-lobby-seat is-waiting'),guestCopy=make('div');guestCopy.append(make('span','mg-lobby-label','GEGNER'),make('b','','Freier Spielerplatz'),make('small','','Wartet auf Discord-Beitritt'));guest.append(make('span','mg-lobby-avatar mg-lobby-search','?'),guestCopy);seats.append(host,pulse,guest);
+     const steps=make('div','mg-lobby-steps');for(const [label,stateName] of [['Discord-Nachricht veröffentlicht','is-done'],['Gegner tritt bei','is-current'],['Einsatz wählen & bereit machen','']] ){const step=make('div','mg-lobby-step '+stateName);step.append(make('span','',stateName==='is-done'?'✓':stateName==='is-current'?'2':'3'),make('b','',label));steps.append(step);}
+     const footer=make('div','mg-lobby-footer'),status=make('p','mg-lobby-status');status.append(make('span','mg-live'),document.createTextNode('Lobby offen · Einladung etwa 10 Minuten gültig'));const actions=make('div','mg-actions');actions.append(btn('Lobby schließen',()=>act('leave',{match_id:m.id}),true));footer.append(status,actions);lobby.append(header,seats,steps,footer);panel.append(lobby);return;
+   }
    const vs=make('div','mg-vs');for(const [id,name,s] of [[m.host,m.host_name,'X'],[m.guest,m.guest_name,'O']]){const p=make('div','mg-player'+(m.status==='playing'&&m.turn===id?' active':''));p.append(make('span','mg-symbol',s),make('b','',name+(id===me?' · Du':'')));vs.append(p);if(id===m.host)vs.append(make('span','mg-muted','VS'));}panel.append(vs);
    if(m.status==='lobby'){
      panel.append(make('h2','mg-status','Euer Einsatz. Eure Entscheidung.'),make('p','mg-muted','Beide bestätigen denselben Einsatz. Bei einem Unentschieden erhält jeder seinen Einsatz zurück. Mit 0 YY Points spielt ihr ohne Einsatz.'));
@@ -136,7 +144,7 @@
    installPokerCard();
    await window.yoyooAuthReady;
    if(app){
-     await import('./chess-ui.mjs?v=20261127-discord-modes-1');
+     await import('./chess-ui.mjs?v=20261128-lobby-1');
      const chessOpen=$('mg-open-chess');
      if(chessOpen)chessOpen.onclick=()=>{selectedGame='chess';playMode='choose';opened=true;render();window.scrollTo({top:0,behavior:'instant'});};
      $('mg-open-game').onclick=()=>{selectedGame='tic_tac_toe';playMode='choose';opened=true;render();window.scrollTo({top:0,behavior:'instant'});};
